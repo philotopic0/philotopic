@@ -1,5 +1,7 @@
 /* ============================================================
    PHILOTOPIC — lógica de la aplicación conectada a Supabase
+   Las historias se publican ÚNICAMENTE desde el panel de Supabase.
+   Los visitantes leen, votan y comentan.
    ============================================================ */
 
 // 1. CONFIGURACIÓN Y CONEXIÓN CON SUPABASE
@@ -9,7 +11,11 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ------------------------------------------------------------
-   A. DATOS BASE (se usan si la base de datos está vacía para poblarla)
+   A. DATOS BASE
+   Las categorías se usan para los filtros del feed.
+   Las historias semilla solo se insertan si la tabla está vacía:
+   si ya publicas tú desde el panel, puedes borrar HISTORIAS_SEMILLA
+   y sembrarBaseDeDatos() sin tocar nada más.
    ------------------------------------------------------------ */
 const CATEGORIAS = ['Dilemas morales','Relaciones','Trabajo','Familia','Sociedad','Tecnología'];
 
@@ -342,8 +348,7 @@ function pintarFeed(){
   if(!lista.length){
     cont.innerHTML = `<div class="vacio">
         <h3>Ninguna historia encaja con esa búsqueda</h3>
-        <p>Prueba con otra palabra o escribe tú el dilema que falta.</p>
-        <button class="btn btn--principal" data-abrir-crear>Publicar historia</button>
+        <p>Prueba con otra palabra o cambia de temática.</p>
       </div>`;
     return;
   }
@@ -363,7 +368,6 @@ function pintarCategorias(){
   sel.innerHTML = `<option value="todas">Todas las temáticas</option>` +
     CATEGORIAS.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   sel.value = estado.categoria;
-  $('#c-categoria').innerHTML = CATEGORIAS.map(c => `<option>${esc(c)}</option>`).join('');
 }
 
 /* ------------------------------------------------------------
@@ -571,7 +575,7 @@ function pintarLateralDebate(h){
       <span>${contarComentarios(o.comentarios)}</span></button></li>`).join('');
 }
 
-/* --- ACCIONES EN BASE DE DATOS (VOTOS, COMENTARIOS, HISTORIAS) --- */
+/* --- ACCIONES EN BASE DE DATOS (VOTOS Y COMENTARIOS) --- */
 
 async function votar(idHistoria, idOpcion){
   if(haVotado(idHistoria)) return;
@@ -689,7 +693,7 @@ function compartir(id){
 }
 
 /* ------------------------------------------------------------
-   F. MODALES: crear historia y cuenta
+   F. MODAL DE CUENTA
    ------------------------------------------------------------ */
 let veloActivo = null;
 function abrirModal(sel){
@@ -744,88 +748,6 @@ function pintarPerfil(){
   }else{
     invitado.hidden = false; invitado.style.display = 'flex';
     perfil.hidden = true;
-  }
-}
-
-function filaOpcion(valor, indice){
-  return `<div class="fila-opcion">
-      <label for="c-op-${indice}" class="solo-lectores">Opción ${indice+1}</label>
-      <input type="text" id="c-op-${indice}" class="c-op" maxlength="70" value="${esc(valor||'')}" placeholder="Opción ${indice+1}">
-      <button class="quitar" type="button" data-quitar-opcion aria-label="Quitar opción">&times;</button>
-    </div>`;
-}
-function reindexarOpciones(){
-  $$('#c-opciones .fila-opcion').forEach((fila,i) => {
-    const input = fila.querySelector('input');
-    input.id = 'c-op-' + i;
-    input.placeholder = 'Opción ' + (i+1);
-  });
-}
-function abrirCrear(){
-  if(!estaLogado()){ abrirSesion('registro'); avisar('Regístrate con un usuario para publicar.'); return; }
-  $('#c-titulo').value = ''; $('#c-cuerpo').value = ''; $('#c-pregunta').value = '';
-  $('#c-error').hidden = true;
-  $('#c-opciones').innerHTML = ['Sí','No','Depende'].map((v,i) => filaOpcion(v,i)).join('');
-  abrirModal('#velo-crear');
-}
-
-async function publicarHistoria(){
-  const error = $('#c-error');
-  const titulo = $('#c-titulo').value.trim();
-  const cuerpo = $('#c-cuerpo').value.trim();
-  const pregunta = $('#c-pregunta').value.trim();
-  const opciones = $$('#c-opciones .c-op').map(i => i.value.trim()).filter(Boolean);
-
-  const fallo =
-    titulo.length < 10 ? 'El título necesita al menos 10 caracteres.' :
-    cuerpo.length < 60 ? 'La historia es demasiado corta.' :
-    !pregunta ? 'Falta la pregunta abierta.' :
-    opciones.length < 3 ? 'Se necesitan al menos 3 opciones.' : null;
-  if(fallo){ error.textContent = fallo; error.hidden = false; return; }
-
-  const nueva = {
-    id: idNuevo('h'),
-    categoria: $('#c-categoria').value,
-    autor: estado.usuario,
-    titulo,
-    cuerpo: cuerpo.split(/\n{2,}/).map(p => p.trim()).filter(Boolean),
-    pregunta,
-    destacada: false,
-    created_at: new Date().toISOString(),
-    opciones: opciones.map((t,i) => ({id:'o'+(i+1), texto:t, votos:0})),
-    comentarios: []
-  };
-
-  // Local optimista
-  estado.historias.unshift(nueva);
-  cerrarModal();
-  estado.categoria = 'todas'; estado.orden = 'nuevas';
-  pintarCategorias();
-  volverAlFeed();
-  avisar('Historia subida a la nube.');
-
-  // Guardar en Supabase
-  try {
-    await db.from('historias').insert({
-      id: nueva.id,
-      categoria: nueva.categoria,
-      autor: nueva.autor,
-      titulo: nueva.titulo,
-      cuerpo: nueva.cuerpo,
-      pregunta: nueva.pregunta,
-      destacada: false
-    });
-    for(const op of nueva.opciones){
-      await db.from('opciones').insert({
-        id: op.id,
-        historia_id: nueva.id,
-        texto: op.texto,
-        votos: 0
-      });
-    }
-  } catch(e){
-    console.error('Error guardando historia en base de datos:', e);
-    avisar('Error guardando en la nube.');
   }
 }
 
@@ -892,18 +814,9 @@ document.addEventListener('click', ev => {
   const fmt = el('[data-formato]');
   if(fmt){ aplicarFormato(fmt.dataset.formato); return; }
 
-  if(el('[data-abrir-crear]')){ abrirCrear(); return; }
   const ses = el('[data-abrir-sesion]'); if(ses){ abrirSesion(ses.dataset.abrirSesion); return; }
   if(el('[data-cerrar]')){ cerrarModal(); return; }
   if(t.classList && t.classList.contains('velo')){ cerrarModal(); return; }
-
-  if(el('[data-quitar-opcion]')){
-    const filas = $$('#c-opciones .fila-opcion');
-    if(filas.length <= 3){ avisar('Mínimo tres opciones requeridas.'); return; }
-    el('.fila-opcion').remove();
-    reindexarOpciones();
-    return;
-  }
 });
 
 function aplicarFormato(tipo){
@@ -917,12 +830,13 @@ function aplicarFormato(tipo){
   ta.setSelectionRange(ini + envoltura[0].length, ini + envoltura[0].length + sel.length);
 }
 
-document.addEventListener('click', ev => {
+document.addEventListener('click', async ev => {
   if(!ev.target.closest('#btn-publicar-respuesta')) return;
   const ta = $('#texto-respuesta');
   const sel = $('#voto-editor');
   if(sel && sel.value) votar(estado.actual, sel.value);
-  if(publicarRespuesta(ta ? ta.value : '', null)){
+  const publicado = await publicarRespuesta(ta ? ta.value : '', null);
+  if(publicado){
     const nuevoTa = $('#texto-respuesta');
     if(nuevoTa) nuevoTa.value = '';
   }
@@ -951,12 +865,6 @@ $('#btn-volver').addEventListener('click', e => { e.preventDefault(); volverAlFe
 
 $('#s-entrar').addEventListener('click', entrar);
 $('#s-usuario').addEventListener('keydown', e => { if(e.key === 'Enter') entrar(); });
-$('#c-publicar').addEventListener('click', publicarHistoria);
-$('#c-anadir-opcion').addEventListener('click', () => {
-  const n = $$('#c-opciones .fila-opcion').length;
-  if(n >= 6){ avisar('Máximo 6 opciones.'); return; }
-  $('#c-opciones').insertAdjacentHTML('beforeend', filaOpcion('', n));
-});
 
 document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarModal(); });
 

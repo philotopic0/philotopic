@@ -98,11 +98,6 @@
       <!-- Lateral -->
       <aside class="lateral">
         <div class="panel">
-          <h3>Cuenta una historia</h3>
-          <p>Un relato corto, una pregunta sin respuesta cómoda y al menos tres posturas para votar.</p>
-          <button class="btn btn--principal" style="width:100%" data-abrir-crear>Publicar historia</button>
-        </div>
-        <div class="panel">
           <h3>Temáticas</h3>
           <ul class="lista-tematicas" id="lista-tematicas"></ul>
         </div>
@@ -172,49 +167,6 @@
 </footer>
 
 <!-- ============================================================
-     MODAL — CREAR HISTORIA
-     ============================================================ -->
-<div class="velo" id="velo-crear" hidden>
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-crear">
-    <div class="modal__cabecera">
-      <h2 id="titulo-crear">Nueva historia</h2>
-      <button class="cerrar" data-cerrar aria-label="Cerrar">&times;</button>
-    </div>
-    <div class="modal__cuerpo">
-      <div class="campo">
-        <label for="c-titulo">Título</label>
-        <p class="pista">Sugiere el dilema sin resolverlo.</p>
-        <input type="text" id="c-titulo" maxlength="110" placeholder="Encontré 4.000 € en un abrigo de segunda mano">
-      </div>
-      <div class="campo">
-        <label for="c-categoria">Temática</label>
-        <select id="c-categoria"></select>
-      </div>
-      <div class="campo">
-        <label for="c-cuerpo">La historia</label>
-        <p class="pista">Cuenta los hechos y deja fuera tu conclusión.</p>
-        <textarea id="c-cuerpo" placeholder="Separa los párrafos con una línea en blanco."></textarea>
-      </div>
-      <div class="campo">
-        <label for="c-pregunta">Pregunta abierta</label>
-        <input type="text" id="c-pregunta" maxlength="140" placeholder="¿Tenía derecho a quedárselo?">
-      </div>
-      <div class="campo">
-        <label>Opciones de la encuesta</label>
-        <p class="pista">Mínimo tres. Incluye una postura intermedia si el caso lo pide.</p>
-        <div id="c-opciones"></div>
-        <button class="btn btn--linea btn--pequeno" id="c-anadir-opcion" type="button">Añadir opción</button>
-      </div>
-    </div>
-    <div class="modal__pie">
-      <p class="error" id="c-error" hidden></p>
-      <button class="btn btn--linea" data-cerrar type="button">Cancelar</button>
-      <button class="btn btn--principal" id="c-publicar" type="button">Publicar historia</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============================================================
      MODAL — CUENTA
      ============================================================ -->
 <div class="velo" id="velo-sesion" hidden>
@@ -239,10 +191,9 @@
 </div>
 
 <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+
 <!-- Librería oficial de Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- Lógica vinculada -->
-<script src="app.js"></script>
 <!-- Lógica vinculada -->
 <script src="app.js"></script>
 </body>

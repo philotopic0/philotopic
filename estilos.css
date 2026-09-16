@@ -501,3 +501,255 @@ img{max-width:100%;}
 @media (min-width:720px){
   .solo-movil{display:none !important;}
 }
+/* ============================================================
+   ESTILOS MODAL AUTH — ESTILO REDDIT / TWITCH
+   ============================================================ */
+.auth-card {
+  max-width: 440px !important;
+  width: 92%;
+  padding: 32px 28px 24px !important;
+  border-radius: 18px !important;
+  background: #FFFFFF;
+  box-shadow: 0 20px 40px -10px rgba(17, 24, 39, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  position: relative;
+  text-align: left;
+}
+
+.auth-card__cerrar {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: #64748B;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+.auth-card__cerrar:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+.auth-card__header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.auth-card__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #EEF2FF;
+  margin-bottom: 12px;
+}
+
+.auth-card__title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+}
+
+.auth-card__subtitle {
+  font-size: 0.88rem;
+  color: #64748B;
+  margin: 0;
+}
+
+/* Tabs conmutadoras estilo app nativa */
+.auth-tabs {
+  display: flex;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 10px;
+  margin-bottom: 18px;
+  gap: 4px;
+}
+
+.auth-tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #64748B;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.auth-tab[aria-selected="true"] {
+  background: #FFFFFF;
+  color: #0F172A;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Botón Social */
+.btn-auth-social {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #1E293B;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-auth-social:hover {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+/* Divisor elegante */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 18px 0;
+  color: #94A3B8;
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #E2E8F0;
+}
+.auth-divider span {
+  padding: 0 12px;
+}
+
+/* Campos de entrada */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.auth-campo label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.auth-campo .req {
+  color: #EF4444;
+}
+
+.auth-campo input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 9px;
+  font-size: 0.92rem;
+  background: #F8FAFC;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.auth-campo input:focus {
+  outline: none;
+  background: #FFFFFF;
+  border-color: #3B2EEA;
+  box-shadow: 0 0 0 3px rgba(59, 46, 234, 0.12);
+}
+
+.auth-campo__hint {
+  font-size: 0.75rem;
+  color: #64748B;
+}
+
+/* Campo contraseña con toggle de visualización */
+.input-password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-password-wrapper input {
+  padding-right: 44px;
+}
+
+.btn-toggle-password {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+.btn-toggle-password:hover {
+  color: #334155;
+}
+
+/* Botón submit y pie */
+.auth-card__submit {
+  width: 100%;
+  margin-top: 8px;
+  padding: 11px !important;
+  font-size: 0.96rem !important;
+  font-weight: 600;
+  border-radius: 10px !important;
+  background: #3B2EEA !important;
+  color: #FFF !important;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(59, 46, 234, 0.28);
+}
+
+.auth-card__error {
+  margin: 0;
+  padding: 8px 12px;
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 8px;
+  color: #B91C1C;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.auth-card__footer {
+  text-align: center;
+  margin-top: 18px;
+  font-size: 0.84rem;
+  color: #64748B;
+}
+
+.link-inline {
+  background: none;
+  border: none;
+  color: #3B2EEA;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}

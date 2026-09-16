@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Philotopic — Historias que no tienen una respuesta fácil</title>
+<meta name="description" content="Foro de dilemas morales, éticos y filosóficos. Lee la historia, vota y discute con quien piensa distinto.">
+
+<!-- Tipografía del proyecto: Reddit Sans -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
+
+<!-- Estilos vinculados -->
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+<a href="#principal" class="solo-lectores">Saltar al contenido</a>
+
+<!-- ============================================================
+     CABECERA: logo, buscador, temáticas y acciones de usuario
+     ============================================================ -->
+<header class="cabecera">
+  <div class="envoltura cabecera__fila">
+
+    <a href="#" class="logo" id="ir-inicio" aria-label="Philotopic, inicio">
+      <!-- Marca: un círculo partido en dos posturas -->
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+        <circle cx="13" cy="13" r="11" fill="none" stroke="#3B2EEA" stroke-width="2"/>
+        <path d="M13 2a11 11 0 0 1 0 22 7 7 0 0 1 0-22Z" fill="#3B2EEA"/>
+      </svg>
+      <span class="logo__nombre">Philotopic</span>
+    </a>
+
+    <form class="buscador" role="search" id="form-buscar">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      </svg>
+      <label for="buscar" class="solo-lectores">Buscar historias o palabras clave</label>
+      <input id="buscar" type="search" placeholder="Busca una historia o una palabra clave" autocomplete="off">
+    </form>
+
+    <label for="tema-cabecera" class="solo-lectores">Temática</label>
+    <select class="selector-tema oculto-movil" id="tema-cabecera"></select>
+
+    <div class="acciones">
+      <button class="btn btn--linea btn--pequeno oculto-movil" id="btn-debate-dia">Debate del día</button>
+
+      <button class="campana" id="btn-notificaciones" aria-label="Notificaciones: 3 sin leer">
+        <svg width="19" height="19" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M10 2.5a5 5 0 0 0-5 5v3.2L3.6 13.4a.6.6 0 0 0 .5.9h11.8a.6.6 0 0 0 .5-.9L15 10.7V7.5a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M8 16.4a2.1 2.1 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span class="campana__punto"></span>
+      </button>
+
+      <!-- Sesión cerrada -->
+      <div id="zona-invitado" style="display:flex;gap:8px;">
+        <button class="btn btn--plano btn--pequeno oculto-movil" data-abrir-sesion="entrar">Iniciar sesión</button>
+        <button class="btn btn--principal btn--pequeno" data-abrir-sesion="registro">Crear cuenta</button>
+      </div>
+
+      <!-- Sesión abierta -->
+      <button id="zona-perfil" class="avatar avatar--boton" hidden aria-label="Tu perfil"></button>
+    </div>
+  </div>
+</header>
+
+<main id="principal">
+
+  <!-- ============================================================
+       VISTA 1 — PORTADA / FEED
+       ============================================================ -->
+  <div id="vista-feed" class="envoltura">
+    <div class="disposicion">
+
+      <div>
+        <!-- Debate del día: entrada a la historia más viva del momento -->
+        <section class="destacado" id="debate-dia" aria-labelledby="titulo-debate-dia"></section>
+
+        <!-- Filtros de exploración -->
+        <nav aria-label="Ordenar el feed">
+          <div class="pestanas" role="tablist" id="pestanas-orden">
+            <button class="pestana" role="tab" data-orden="tendencias" aria-selected="true">Tendencias</button>
+            <button class="pestana" role="tab" data-orden="debatidas" aria-selected="false">Más debatidas</button>
+            <button class="pestana" role="tab" data-orden="nuevas" aria-selected="false">Nuevas</button>
+            <button class="pestana" role="tab" data-orden="votadas" aria-selected="false">Top votaciones</button>
+          </div>
+        </nav>
+        <div class="chips" id="chips-categoria" aria-label="Filtrar por temática"></div>
+
+        <h1 class="solo-lectores" id="titulo-feed">Historias abiertas a debate</h1>
+        <div id="feed"></div>
+      </div>
+
+      <!-- Lateral -->
+      <aside class="lateral">
+        <div class="panel">
+          <h3>Cuenta una historia</h3>
+          <p>Un relato corto, una pregunta sin respuesta cómoda y al menos tres posturas para votar.</p>
+          <button class="btn btn--principal" style="width:100%" data-abrir-crear>Publicar historia</button>
+        </div>
+        <div class="panel">
+          <h3>Temáticas</h3>
+          <ul class="lista-tematicas" id="lista-tematicas"></ul>
+        </div>
+        <div class="panel">
+          <h3>Cómo se debate aquí</h3>
+          <ul class="reglas">
+            <li>Vota antes de ver los porcentajes: así opinas sin arrastrarte por la mayoría.</li>
+            <li>Responde al argumento, no a la persona.</li>
+            <li>Cambiar de opinión a mitad del hilo cuenta como victoria.</li>
+            <li>Reporta lo que sea spam o ataque personal; no lo que te incomode.</li>
+          </ul>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- ============================================================
+       VISTA 2 — DEBATE INDIVIDUAL
+       ============================================================ -->
+  <div id="vista-debate" class="envoltura" hidden>
+    <a href="#" class="volver" id="btn-volver">
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Volver al feed
+    </a>
+
+    <div class="disposicion">
+      <div>
+        <!-- Relato + pregunta -->
+        <article class="hoja" id="hoja-relato"></article>
+        <!-- Encuesta -->
+        <section class="encuesta" id="modulo-encuesta" aria-labelledby="titulo-encuesta"></section>
+        <!-- Editor de respuesta -->
+        <section class="editor" id="modulo-editor" aria-labelledby="titulo-editor"></section>
+        <!-- Hilos -->
+        <section aria-labelledby="titulo-hilos">
+          <div class="hilos__cabecera">
+            <h2 id="titulo-hilos">Debate</h2>
+            <div class="orden" id="orden-comentarios">
+              <button data-orden-com="relevancia" aria-pressed="true">Relevancia</button>
+              <button data-orden-com="nuevos" aria-pressed="false">Nuevos</button>
+            </div>
+          </div>
+          <div id="hilos"></div>
+        </section>
+      </div>
+
+      <aside class="lateral">
+        <div class="panel" id="panel-contexto"></div>
+        <div class="panel">
+          <h3>Sigue debatiendo</h3>
+          <ul class="lista-tematicas" id="relacionados"></ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+</main>
+
+<footer class="pie">
+  <div class="envoltura">
+    Philotopic — historias sin respuesta fácil. Publicado por su comunidad.
+    <a href="#" onclick="return false">Normas</a> · <a href="#" onclick="return false">Moderación</a> · <a href="#" onclick="return false">Privacidad</a>
+  </div>
+</footer>
+
+<!-- ============================================================
+     MODAL — CREAR HISTORIA
+     ============================================================ -->
+<div class="velo" id="velo-crear" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-crear">
+    <div class="modal__cabecera">
+      <h2 id="titulo-crear">Nueva historia</h2>
+      <button class="cerrar" data-cerrar aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal__cuerpo">
+      <div class="campo">
+        <label for="c-titulo">Título</label>
+        <p class="pista">Sugiere el dilema sin resolverlo.</p>
+        <input type="text" id="c-titulo" maxlength="110" placeholder="Encontré 4.000 € en un abrigo de segunda mano">
+      </div>
+      <div class="campo">
+        <label for="c-categoria">Temática</label>
+        <select id="c-categoria"></select>
+      </div>
+      <div class="campo">
+        <label for="c-cuerpo">La historia</label>
+        <p class="pista">Cuenta los hechos y deja fuera tu conclusión.</p>
+        <textarea id="c-cuerpo" placeholder="Separa los párrafos con una línea en blanco."></textarea>
+      </div>
+      <div class="campo">
+        <label for="c-pregunta">Pregunta abierta</label>
+        <input type="text" id="c-pregunta" maxlength="140" placeholder="¿Tenía derecho a quedárselo?">
+      </div>
+      <div class="campo">
+        <label>Opciones de la encuesta</label>
+        <p class="pista">Mínimo tres. Incluye una postura intermedia si el caso lo pide.</p>
+        <div id="c-opciones"></div>
+        <button class="btn btn--linea btn--pequeno" id="c-anadir-opcion" type="button">Añadir opción</button>
+      </div>
+    </div>
+    <div class="modal__pie">
+      <p class="error" id="c-error" hidden></p>
+      <button class="btn btn--linea" data-cerrar type="button">Cancelar</button>
+      <button class="btn btn--principal" id="c-publicar" type="button">Publicar historia</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — CUENTA
+     ============================================================ -->
+<div class="velo" id="velo-sesion" hidden>
+  <div class="modal" style="max-width:420px" role="dialog" aria-modal="true" aria-labelledby="titulo-sesion">
+    <div class="modal__cabecera">
+      <h2 id="titulo-sesion">Entra en el debate</h2>
+      <button class="cerrar" data-cerrar aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal__cuerpo">
+      <p style="font-size:var(--t-sm);margin-top:0">Publicas con tu nombre de usuario: quien te lea sabe a quién responde.</p>
+      <div class="campo">
+        <label for="s-usuario">Nombre de usuario</label>
+        <input type="text" id="s-usuario" maxlength="22" placeholder="p. ej. martaenduda" autocomplete="username">
+      </div>
+      <p class="error" id="s-error" hidden></p>
+    </div>
+    <div class="modal__pie">
+      <button class="btn btn--linea" data-cerrar type="button">Ahora no</button>
+      <button class="btn btn--principal" id="s-entrar" type="button">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+<!-- Librería oficial de Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Lógica vinculada -->
+<script src="app.js"></script>
+<!-- Lógica vinculada -->
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,7 +1,5 @@
 /* ============================================================
-   PHILOTOPIC — lógica de la aplicación conectada a Supabase
-   Las historias se publican ÚNICAMENTE desde el panel de Supabase.
-   Los visitantes leen, votan y comentan.
+   PHILOTOPIC — lógica con Supabase Auth y persistencia
    ============================================================ */
 
 // 1. CONFIGURACIÓN Y CONEXIÓN CON SUPABASE
@@ -10,13 +8,6 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* ------------------------------------------------------------
-   A. DATOS BASE
-   Las categorías se usan para los filtros del feed.
-   Las historias semilla solo se insertan si la tabla está vacía:
-   si ya publicas tú desde el panel, puedes borrar HISTORIAS_SEMILLA
-   y sembrarBaseDeDatos() sin tocar nada más.
-   ------------------------------------------------------------ */
 const CATEGORIAS = ['Dilemas morales','Relaciones','Trabajo','Familia','Sociedad','Tecnología'];
 
 const HISTORIAS_SEMILLA = [
@@ -134,25 +125,26 @@ function avisar(texto){
 }
 
 /* ------------------------------------------------------------
-   C. ESTADO Y COMUNICACIÓN CON SUPABASE
+   C. ESTADO DE LA APLICACIÓN
    ------------------------------------------------------------ */
 const estado = {
-  usuario: localStorage.getItem('philotopic:usuario') || null,
+  usuario: null,        // Nombre de usuario público
+  userAuth: null,       // Objeto de Supabase Auth
   historias: [],
   votos: JSON.parse(localStorage.getItem('philotopic:votos') || '{}'),
   votosCom: JSON.parse(localStorage.getItem('philotopic:votosCom') || '{}'),
   reportes: JSON.parse(localStorage.getItem('philotopic:reportes') || '[]'),
-  orden: 'tendencias', categoria: 'todas', busqueda: '', ordenCom: 'relevancia', actual: null
+  orden: 'tendencias', categoria: 'todas', busqueda: '', ordenCom: 'relevancia', actual: null,
+  modoModal: 'entrar'   // 'entrar' o 'registro'
 };
 
 function guardarLocal(){
-  localStorage.setItem('philotopic:usuario', estado.usuario || '');
   localStorage.setItem('philotopic:votos', JSON.stringify(estado.votos));
   localStorage.setItem('philotopic:votosCom', JSON.stringify(estado.votosCom));
   localStorage.setItem('philotopic:reportes', JSON.stringify(estado.reportes));
 }
 
-// Cargar historias, opciones y comentarios desde Supabase
+// Cargar historias desde Supabase
 async function cargarDatosSupabase(){
   try {
     const { data: historias, error: errH } = await db
@@ -166,13 +158,11 @@ async function cargarDatosSupabase(){
 
     if(errH) throw errH;
 
-    // Si la base de datos está recién creada, creamos historias semilla
     if(!historias || historias.length === 0){
       await sembrarBaseDeDatos();
       return cargarDatosSupabase();
     }
 
-    // Organizar comentarios en árbol anidado (padres e hijos)
     estado.historias = historias.map(h => {
       const todosComs = (h.comentarios || []).map(c => ({
         id: c.id,
@@ -206,12 +196,11 @@ async function cargarDatosSupabase(){
     });
 
   } catch(e) {
-    console.error('Error cargando datos de Supabase:', e);
+    console.error('Error cargando datos:', e);
     avisar('Error conectando con la base de datos.');
   }
 }
 
-// Inicializar datos de prueba en Supabase la primera vez
 async function sembrarBaseDeDatos(){
   for(const h of HISTORIAS_SEMILLA){
     await db.from('historias').insert({
@@ -236,7 +225,7 @@ async function sembrarBaseDeDatos(){
 
 const haVotado   = idH => Boolean(estado.votos[idH]);
 const miVoto     = idH => estado.votos[idH] || null;
-const estaLogado = () => Boolean(estado.usuario);
+const estaLogado = () => Boolean(estado.userAuth && estado.usuario);
 
 /* ------------------------------------------------------------
    D. PORTADA: destacado, filtros y feed
@@ -493,7 +482,7 @@ function pintarEditor(h){
     <label for="texto-respuesta" class="solo-lectores">Tu respuesta</label>
     <textarea id="texto-respuesta" placeholder="${estaLogado()
       ? 'Explica qué harías tú y qué te hace dudar…'
-      : 'Necesitas un nombre de usuario para responder.'}"></textarea>
+      : 'Inicia sesión para argumentar en el debate.'}"></textarea>
     <div class="editor__pie">
       ${selector || '<span class="meta">Publicas como <b style="color:var(--carbon)">' + esc(estado.usuario || 'invitado') + '</b></span>'}
       <button class="btn btn--principal" id="btn-publicar-respuesta">Publicar respuesta</button>
@@ -583,7 +572,6 @@ async function votar(idHistoria, idOpcion){
   const o = h && h.opciones.find(x => x.id === idOpcion);
   if(!o) return;
 
-  // Actualización optimista local
   o.votos = (o.votos || 0) + 1;
   estado.votos[idHistoria] = idOpcion;
   guardarLocal();
@@ -592,11 +580,10 @@ async function votar(idHistoria, idOpcion){
   pintarLateralDebate(h);
   avisar('Voto registrado.');
 
-  // Guardar en Supabase
   try {
     await db.from('opciones').update({ votos: o.votos }).match({ historia_id: idHistoria, id: idOpcion });
   } catch(e){
-    console.error('Error guardando voto en base de datos:', e);
+    console.error('Error guardando voto:', e);
   }
 }
 
@@ -623,8 +610,8 @@ async function votarComentario(idCom, dir){
 }
 
 async function publicarRespuesta(texto, idPadre){
-  if(!estaLogado()){ abrirSesion('entrar'); avisar('Crea una cuenta para responder.'); return false; }
-  if(!texto.trim()){ avisar('Escribe tu respuesta.'); return false; }
+  if(!estaLogado()){ abrirSesion('entrar'); avisar('Inicia sesión para responder.'); return false; }
+  if(!texto.trim()){ avisar('Escribe tu respuesta antes de publicar.'); return false; }
   const h = estado.historias.find(x => x.id === estado.actual);
   const nuevo = {
     id: idNuevo('c'),
@@ -639,7 +626,6 @@ async function publicarRespuesta(texto, idPadre){
     respuestas: []
   };
 
-  // Local
   estado.votosCom[nuevo.id] = 1;
   guardarLocal();
   if(idPadre){
@@ -653,7 +639,6 @@ async function publicarRespuesta(texto, idPadre){
   pintarLateralDebate(h);
   avisar('Respuesta publicada.');
 
-  // Guardar en Supabase
   try {
     await db.from('comentarios').insert({
       id: nuevo.id,
@@ -666,7 +651,7 @@ async function publicarRespuesta(texto, idPadre){
       abajo: 0
     });
   } catch(e){
-    console.error('Error publicando comentario en base de datos:', e);
+    console.error('Error publicando comentario:', e);
   }
   return true;
 }
@@ -693,14 +678,14 @@ function compartir(id){
 }
 
 /* ------------------------------------------------------------
-   F. MODAL DE CUENTA
+   F. AUTENTICACIÓN REAL (SUPABASE AUTH)
    ------------------------------------------------------------ */
 let veloActivo = null;
 function abrirModal(sel){
   veloActivo = $(sel);
   veloActivo.hidden = false;
   document.body.style.overflow = 'hidden';
-  const primero = veloActivo.querySelector('input,textarea,select');
+  const primero = veloActivo.querySelector('input:not([hidden]),select');
   if(primero) setTimeout(() => primero.focus(), 40);
 }
 function cerrarModal(){
@@ -710,43 +695,120 @@ function cerrarModal(){
   veloActivo = null;
 }
 
-function abrirSesion(modo){
-  $('#titulo-sesion').textContent = modo === 'registro' ? 'Crea tu cuenta' : 'Entra en el debate';
-  $('#s-entrar').textContent = modo === 'registro' ? 'Crear cuenta' : 'Entrar';
+function cambiarModoAuth(modo){
+  estado.modoModal = modo;
+  const esRegistro = modo === 'registro';
+  $('#titulo-sesion').textContent = esRegistro ? 'Crea tu cuenta' : 'Entra en el debate';
+  $('#s-submit').textContent = esRegistro ? 'Crear cuenta' : 'Iniciar sesión';
+  $('#campo-usuario').hidden = !esRegistro;
+  $('#tab-login').setAttribute('aria-selected', !esRegistro);
+  $('#tab-registro').setAttribute('aria-selected', esRegistro);
   $('#s-error').hidden = true;
+}
+
+function abrirSesion(modo = 'entrar'){
+  cambiarModoAuth(modo);
   abrirModal('#velo-sesion');
 }
-function entrar(){
-  const nombre = $('#s-usuario').value.trim();
-  if(nombre.length < 3){
-    const e = $('#s-error');
-    e.textContent = 'El usuario necesita al menos 3 caracteres.';
-    e.hidden = false;
+
+async function procesarAuth(){
+  const errorEl = $('#s-error');
+  errorEl.hidden = true;
+
+  const email = $('#s-email').value.trim();
+  const password = $('#s-password').value;
+  const username = $('#s-usuario').value.trim();
+
+  if(!email || !password){
+    errorEl.textContent = 'Introduce correo y contraseña.';
+    errorEl.hidden = false;
     return;
   }
-  estado.usuario = nombre.replace(/\s+/g,'_');
-  guardarLocal();
+
+  if(estado.modoModal === 'registro'){
+    if(!username || username.length < 3){
+      errorEl.textContent = 'El nombre de usuario es obligatorio (mínimo 3 letras).';
+      errorEl.hidden = false;
+      return;
+    }
+
+    avisar('Creando cuenta…');
+    const { data, error } = await db.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { username: username.replace(/\s+/g,'_') }
+      }
+    });
+
+    if(error){
+      errorEl.textContent = error.message;
+      errorEl.hidden = false;
+      return;
+    }
+
+    if(data.user){
+      establecerSesion(data.user);
+      cerrarModal();
+      avisar('Cuenta creada con éxito. Bienvenido, ' + estado.usuario + '.');
+    }
+  } else {
+    avisar('Iniciando sesión…');
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
+
+    if(error){
+      errorEl.textContent = 'Credenciales no válidas o usuario no encontrado.';
+      errorEl.hidden = false;
+      return;
+    }
+
+    if(data.user){
+      establecerSesion(data.user);
+      cerrarModal();
+      avisar('Sesión iniciada como ' + estado.usuario + '.');
+    }
+  }
+}
+
+async function loginConGoogle(){
+  const { error } = await db.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname
+    }
+  });
+  if(error) avisar('Error conectando con Google: ' + error.message);
+}
+
+function establecerSesion(user){
+  estado.userAuth = user;
+  // Extraer username de metadatos o prefijo de email
+  estado.usuario = (user.user_metadata && user.user_metadata.username) 
+    || (user.email ? user.email.split('@')[0] : 'usuario');
   pintarPerfil();
-  cerrarModal();
-  avisar('Hola, ' + estado.usuario + '. Ya puedes debatir.');
   if(estado.actual) pintarDebate();
 }
-function salir(){
+
+async function salir(){
+  await db.auth.signOut();
+  estado.userAuth = null;
   estado.usuario = null;
-  guardarLocal();
   pintarPerfil();
-  avisar('Sesión cerrada.');
+  avisar('Has cerrado sesión.');
   if(estado.actual) pintarDebate();
 }
+
 function pintarPerfil(){
   const invitado = $('#zona-invitado'), perfil = $('#zona-perfil');
   if(estaLogado()){
-    invitado.hidden = true; invitado.style.display = 'none';
+    invitado.hidden = true;
+    invitado.style.display = 'none';
     perfil.hidden = false;
     perfil.textContent = estado.usuario.slice(0,2).toUpperCase();
-    perfil.setAttribute('aria-label', 'Perfil de ' + estado.usuario);
+    perfil.setAttribute('aria-label', 'Perfil de ' + estado.usuario + ' (clic para salir)');
   }else{
-    invitado.hidden = false; invitado.style.display = 'flex';
+    invitado.hidden = false;
+    invitado.style.display = 'flex';
     perfil.hidden = true;
   }
 }
@@ -863,14 +925,37 @@ $('#zona-perfil').addEventListener('click', salir);
 $('#ir-inicio').addEventListener('click', e => { e.preventDefault(); volverAlFeed(); });
 $('#btn-volver').addEventListener('click', e => { e.preventDefault(); volverAlFeed(); });
 
-$('#s-entrar').addEventListener('click', entrar);
-$('#s-usuario').addEventListener('keydown', e => { if(e.key === 'Enter') entrar(); });
+// Eventos del modal de autenticación
+$('#tab-login').addEventListener('click', () => cambiarModoAuth('entrar'));
+$('#tab-registro').addEventListener('click', () => cambiarModoAuth('registro'));
+$('#s-submit').addEventListener('click', procesarAuth);
+$('#btn-google').addEventListener('click', loginConGoogle);
+$('#s-password').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
 
 document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarModal(); });
 
-// Inicialización de la aplicación
+// Inicialización de la sesión y datos
 (async function iniciar(){
-  pintarPerfil();
+  // 1. Verificar si hay un usuario logueado en Supabase
+  const { data: { session } } = await db.auth.getSession();
+  if(session && session.user){
+    establecerSesion(session.user);
+  } else {
+    pintarPerfil();
+  }
+
+  // 2. Escuchar cambios de estado de autenticación (ej: redirección de Google OAuth)
+  db.auth.onAuthStateChange((event, session) => {
+    if(session && session.user){
+      establecerSesion(session.user);
+    } else {
+      estado.userAuth = null;
+      estado.usuario = null;
+      pintarPerfil();
+    }
+  });
+
+  // 3. Cargar debates
   avisar('Cargando debates desde la nube…');
   await cargarDatosSupabase();
   pintarCategorias();

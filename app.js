@@ -12,10 +12,6 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ------------------------------------------------------------
    A. DATOS BASE
-   Las categorías se usan para los filtros del feed.
-   Las historias semilla solo se insertan si la tabla está vacía:
-   si ya publicas tú desde el panel, puedes borrar HISTORIAS_SEMILLA
-   y sembrarBaseDeDatos() sin tocar nada más.
    ------------------------------------------------------------ */
 const CATEGORIAS = ['Dilemas morales','Relaciones','Trabajo','Familia','Sociedad','Tecnología'];
 
@@ -133,18 +129,13 @@ function avisar(texto){
   temporizadorAviso = setTimeout(() => el.dataset.visible = 'no', 2600);
 }
 
-// Iconos de ojo (abierto / tachado) para los campos de contraseña
-const ICONO_OJO_ABIERTO = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>`;
-const ICONO_OJO_CERRADO = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M6.61 6.61A18.5 18.5 0 0 0 1 12s4 8 11 8a9.26 9.26 0 0 0 5.39-1.61"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
-
 /* ------------------------------------------------------------
    C. ESTADO Y COMUNICACIÓN CON SUPABASE
    ------------------------------------------------------------ */
 const estado = {
-  usuario: null,         // nombre visible (username o parte del correo)
-  session: null,         // sesión activa de Supabase Auth
-  userId: null,          // id del usuario autenticado
-  modoAuth: 'entrar',    // 'entrar' | 'registro' — pestaña activa del modal
+  usuario: null,         // Nombre de usuario visible
+  userAuth: null,        // Objeto de sesión de Supabase Auth
+  modoModal: 'entrar',   // Pestaña activa ('entrar' o 'registro')
   historias: [],
   votos: JSON.parse(localStorage.getItem('philotopic:votos') || '{}'),
   votosCom: JSON.parse(localStorage.getItem('philotopic:votosCom') || '{}'),
@@ -158,7 +149,6 @@ function guardarLocal(){
   localStorage.setItem('philotopic:reportes', JSON.stringify(estado.reportes));
 }
 
-// Cargar historias, opciones y comentarios desde Supabase
 async function cargarDatosSupabase(){
   try {
     const { data: historias, error: errH } = await db
@@ -172,24 +162,15 @@ async function cargarDatosSupabase(){
 
     if(errH) throw errH;
 
-    // Si la base de datos está recién creada, creamos historias semilla
     if(!historias || historias.length === 0){
       await sembrarBaseDeDatos();
       return cargarDatosSupabase();
     }
 
-    // Organizar comentarios en árbol anidado (padres e hijos)
     estado.historias = historias.map(h => {
       const todosComs = (h.comentarios || []).map(c => ({
-        id: c.id,
-        padre_id: c.padre_id,
-        autor: c.autor,
-        texto: c.texto,
-        voto: c.voto_opcion,
-        arriba: c.arriba,
-        abajo: c.abajo,
-        created_at: c.created_at,
-        respuestas: []
+        id: c.id, padre_id: c.padre_id, autor: c.autor, texto: c.texto,
+        voto: c.voto_opcion, arriba: c.arriba, abajo: c.abajo, created_at: c.created_at, respuestas: []
       }));
 
       const mapa = {};
@@ -217,24 +198,15 @@ async function cargarDatosSupabase(){
   }
 }
 
-// Inicializar datos de prueba en Supabase la primera vez
 async function sembrarBaseDeDatos(){
   for(const h of HISTORIAS_SEMILLA){
     await db.from('historias').insert({
-      id: h.id,
-      categoria: h.categoria,
-      autor: h.autor,
-      titulo: h.titulo,
-      cuerpo: h.cuerpo,
-      pregunta: h.pregunta,
-      destacada: h.destacada
+      id: h.id, categoria: h.categoria, autor: h.autor, titulo: h.titulo,
+      cuerpo: h.cuerpo, pregunta: h.pregunta, destacada: h.destacada
     });
     for(const op of h.opciones){
       await db.from('opciones').insert({
-        id: op.id,
-        historia_id: h.id,
-        texto: op.texto,
-        votos: op.votos
+        id: op.id, historia_id: h.id, texto: op.texto, votos: op.votos
       });
     }
   }
@@ -242,16 +214,14 @@ async function sembrarBaseDeDatos(){
 
 const haVotado   = idH => Boolean(estado.votos[idH]);
 const miVoto     = idH => estado.votos[idH] || null;
-const estaLogado = () => Boolean(estado.session);
+const estaLogado = () => Boolean(estado.userAuth && estado.usuario);
 
 /* ------------------------------------------------------------
    D. PORTADA: destacado, filtros y feed
    ------------------------------------------------------------ */
 const TINTES = ['#3B2EEA','#9A93F4','#C9C5F9','#E4E2FC','#F0EFFE'];
 
-function debateDelDia(){
-  return estado.historias.find(h => h.destacada) || estado.historias[0];
-}
+function debateDelDia(){ return estado.historias.find(h => h.destacada) || estado.historias[0]; }
 
 function pintarDestacado(){
   const h = debateDelDia();
@@ -265,9 +235,7 @@ function pintarDestacado(){
     <h2 class="destacado__pregunta" id="titulo-debate-dia">${esc(h.pregunta)}</h2>
     <p class="destacado__resumen">${esc(h.cuerpo[0].slice(0,190))}…</p>
     <div class="destacado__acciones">
-      <button class="btn btn--principal" data-ir="${h.id}">
-        ${haVotado(h.id) ? 'Seguir el debate' : 'Leer y votar'}
-      </button>
+      <button class="btn btn--principal" data-ir="${h.id}">${haVotado(h.id) ? 'Seguir el debate' : 'Leer y votar'}</button>
       <span class="meta">${plural(totalVotos(h),'voto','votos')} · ${plural(contarComentarios(h.comentarios),'respuesta','respuestas')}</span>
     </div>`;
 }
@@ -279,8 +247,7 @@ function miniEncuesta(h){
         <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
           <rect x="3" y="7" width="10" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/>
           <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Resultados ocultos hasta que votes · ${total === 1 ? '1 persona ya lo ha hecho' : num(total) + ' personas ya lo han hecho'}
+        </svg>Resultados ocultos hasta que votes · ${total === 1 ? '1 persona ya lo ha hecho' : num(total) + ' personas ya lo han hecho'}
       </p></div>`;
   }
   const segmentos = (h.opciones || []).map((o,i) =>
@@ -290,10 +257,7 @@ function miniEncuesta(h){
       <span class="mini__punto" style="background:${TINTES[i % TINTES.length]}"></span>
       <b>${total ? Math.round(o.votos/total*100) : 0}%</b> ${esc(o.texto.length > 34 ? o.texto.slice(0,34)+'…' : o.texto)}
     </span>`).join('');
-  return `<div class="mini">
-      <div class="mini__barra">${segmentos}</div>
-      <div class="mini__leyenda">${leyenda}</div>
-    </div>`;
+  return `<div class="mini"><div class="mini__barra">${segmentos}</div><div class="mini__leyenda">${leyenda}</div></div>`;
 }
 
 function tarjeta(h){
@@ -310,16 +274,11 @@ function tarjeta(h){
     ${miniEncuesta(h)}
     <div class="tarjeta__pie">
       <button class="accion" data-ir="${h.id}">
-        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M14 10.2a1.8 1.8 0 0 1-1.8 1.8H5l-3 2.6V3.8A1.8 1.8 0 0 1 3.8 2h8.4A1.8 1.8 0 0 1 14 3.8Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-        </svg>
+        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M14 10.2a1.8 1.8 0 0 1-1.8 1.8H5l-3 2.6V3.8A1.8 1.8 0 0 1 3.8 2h8.4A1.8 1.8 0 0 1 14 3.8Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
         ${plural(contarComentarios(h.comentarios),'respuesta','respuestas')}
       </button>
       <button class="accion" data-compartir="${h.id}">
-        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M6.5 9.5 12 4M12 4H8.4M12 4v3.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M13 10v2.2A1.8 1.8 0 0 1 11.2 14H3.8A1.8 1.8 0 0 1 2 12.2V4.8A1.8 1.8 0 0 1 3.8 3H6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
+        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5 12 4M12 4H8.4M12 4v3.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 10v2.2A1.8 1.8 0 0 1 11.2 14H3.8A1.8 1.8 0 0 1 2 12.2V4.8A1.8 1.8 0 0 1 3.8 3H6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         Compartir
       </button>
       <button class="accion accion--reportar" data-reportar="${h.id}" data-hecho="${reportada?'si':'no'}" style="margin-left:auto">
@@ -352,10 +311,7 @@ function pintarFeed(){
   const lista = historiasVisibles();
   const cont = $('#feed');
   if(!lista.length){
-    cont.innerHTML = `<div class="vacio">
-        <h3>Ninguna historia encaja con esa búsqueda</h3>
-        <p>Prueba con otra palabra o cambia de temática.</p>
-      </div>`;
+    cont.innerHTML = `<div class="vacio"><h3>Ninguna historia encaja con esa búsqueda</h3><p>Prueba con otra palabra o cambia de temática.</p></div>`;
     return;
   }
   cont.innerHTML = lista.map(tarjeta).join('');
@@ -363,16 +319,11 @@ function pintarFeed(){
 
 function pintarCategorias(){
   const cuenta = c => estado.historias.filter(h => h.categoria === c).length;
-  $('#chips-categoria').innerHTML =
-    ['todas', ...CATEGORIAS].map(c => `
-      <button class="chip" data-categoria="${esc(c)}" aria-pressed="${estado.categoria===c}">
-        ${c === 'todas' ? 'Todas' : esc(c)}
-      </button>`).join('');
-  $('#lista-tematicas').innerHTML = CATEGORIAS.map(c => `
-      <li><button data-categoria="${esc(c)}">${esc(c)} <span>${cuenta(c)}</span></button></li>`).join('');
+  $('#chips-categoria').innerHTML = ['todas', ...CATEGORIAS].map(c => `
+      <button class="chip" data-categoria="${esc(c)}" aria-pressed="${estado.categoria===c}">${c === 'todas' ? 'Todas' : esc(c)}</button>`).join('');
+  $('#lista-tematicas').innerHTML = CATEGORIAS.map(c => `<li><button data-categoria="${esc(c)}">${esc(c)} <span>${cuenta(c)}</span></button></li>`).join('');
   const sel = $('#tema-cabecera');
-  sel.innerHTML = `<option value="todas">Todas las temáticas</option>` +
-    CATEGORIAS.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.innerHTML = `<option value="todas">Todas las temáticas</option>` + CATEGORIAS.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   sel.value = estado.categoria;
 }
 
@@ -411,18 +362,13 @@ function pintarDebate(){
 function pintarRelato(h){
   const reportada = estado.reportes.includes(h.id);
   $('#hoja-relato').innerHTML = `
-    <div class="tarjeta__cabecera">
-      <span class="categoria">${esc(h.categoria)}</span>
-      <span class="meta">${esc(h.autor)} · ${haceRato(h.created_at)}</span>
-    </div>
+    <div class="tarjeta__cabecera"><span class="categoria">${esc(h.categoria)}</span><span class="meta">${esc(h.autor)} · ${haceRato(h.created_at)}</span></div>
     <h1 class="hoja__titulo">${esc(h.titulo)}</h1>
     <div class="relato">${h.cuerpo.map(p => `<p>${esc(p)}</p>`).join('')}</div>
     <p class="pregunta-grande">${esc(h.pregunta)}</p>
     <div class="tarjeta__pie" style="margin-top:20px">
       <button class="accion" data-compartir="${h.id}">Compartir</button>
-      <button class="accion accion--reportar" data-reportar="${h.id}" data-hecho="${reportada?'si':'no'}">
-        ${reportada ? 'Reportada' : 'Reportar historia'}
-      </button>
+      <button class="accion accion--reportar" data-reportar="${h.id}" data-hecho="${reportada?'si':'no'}">${reportada ? 'Reportada' : 'Reportar historia'}</button>
     </div>`;
 }
 
@@ -433,15 +379,9 @@ function pintarEncuesta(h){
 
   if(!mio){
     cuerpo = `<div class="opciones">` + h.opciones.map(o => `
-        <button class="opcion" data-votar="${o.id}">
-          <span class="opcion__marca"></span>
-          <span>${esc(o.texto)}</span>
-        </button>`).join('') + `</div>
+        <button class="opcion" data-votar="${o.id}"><span class="opcion__marca"></span><span>${esc(o.texto)}</span></button>`).join('') + `</div>
       <p class="aviso-sesgo">
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex:0 0 auto;margin-top:2px">
-          <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.4"/>
-          <path d="M8 7.2v4M8 4.8v.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex:0 0 auto;margin-top:2px"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 7.2v4M8 4.8v.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
         Los resultados aparecen en cuanto votes. Se ocultan antes para que la mayoría no decida por ti.
       </p>`;
   }else{
@@ -452,8 +392,7 @@ function pintarEncuesta(h){
         return `<div class="resultado ${esMio ? 'resultado--mio' : ''}">
             <span class="resultado__relleno" data-ancho="${pct.toFixed(1)}"></span>
             <span class="resultado__fila">
-              <span class="resultado__texto">${esc(o.texto)}</span>
-              ${esMio ? '<span class="resultado__tuyo">tu voto</span>' : ''}
+              <span class="resultado__texto">${esc(o.texto)}</span>${esMio ? '<span class="resultado__tuyo">tu voto</span>' : ''}
               <span class="resultado__pct">${pct.toFixed(1)}%</span>
             </span>
           </div>`;
@@ -470,9 +409,7 @@ function pintarEncuesta(h){
       ${mio ? '' : `<span class="meta">${plural(total,'voto','votos')}</span>`}
     </div>${cuerpo}`;
 
-  requestAnimationFrame(() => {
-    $$('#modulo-encuesta .resultado__relleno').forEach(b => b.style.width = b.dataset.ancho + '%');
-  });
+  requestAnimationFrame(() => { $$('#modulo-encuesta .resultado__relleno').forEach(b => b.style.width = b.dataset.ancho + '%'); });
 }
 
 function pintarEditor(h){
@@ -480,16 +417,11 @@ function pintarEditor(h){
   const selector = mio ? '' : `
     <div class="voto-rapido">
       <label for="voto-editor">Vota también:</label>
-      <select id="voto-editor">
-        <option value="">Sin voto</option>
-        ${h.opciones.map(o => `<option value="${o.id}">${esc(o.texto)}</option>`).join('')}
-      </select>
+      <select id="voto-editor"><option value="">Sin voto</option>${h.opciones.map(o => `<option value="${o.id}">${esc(o.texto)}</option>`).join('')}</select>
     </div>`;
 
   $('#modulo-editor').innerHTML = `
-    <h3 id="titulo-editor" style="font-size:var(--t-md);margin-bottom:12px">
-      ${estaLogado() ? 'Argumenta tu postura' : 'Entra para responder'}
-    </h3>
+    <h3 id="titulo-editor" style="font-size:var(--t-md);margin-bottom:12px">${estaLogado() ? 'Argumenta tu postura' : 'Entra para responder'}</h3>
     <div class="editor__barra" role="toolbar" aria-label="Formato del texto">
       <button class="herramienta" data-formato="negrita" title="Negrita"><b>B</b></button>
       <button class="herramienta" data-formato="cursiva" title="Cursiva"><i>I</i></button>
@@ -497,9 +429,7 @@ function pintarEditor(h){
       <span class="meta" style="margin-left:auto;padding-right:8px">Escribe el porqué, no solo el qué</span>
     </div>
     <label for="texto-respuesta" class="solo-lectores">Tu respuesta</label>
-    <textarea id="texto-respuesta" placeholder="${estaLogado()
-      ? 'Explica qué harías tú y qué te hace dudar…'
-      : 'Necesitas iniciar sesión para responder.'}"></textarea>
+    <textarea id="texto-respuesta" placeholder="${estaLogado() ? 'Explica qué harías tú y qué te hace dudar…' : 'Inicia sesión para debatir.'}"></textarea>
     <div class="editor__pie">
       ${selector || '<span class="meta">Publicas como <b style="color:var(--carbon)">' + esc(estado.usuario || 'invitado') + '</b></span>'}
       <button class="btn btn--principal" id="btn-publicar-respuesta">Publicar respuesta</button>
@@ -531,9 +461,7 @@ function pintarComentario(c, h){
         </button>
       </span>
       <button class="accion" data-responder="${c.id}">Responder</button>
-      <button class="accion accion--reportar" data-reportar="${c.id}" data-hecho="${reportado?'si':'no'}">
-        ${reportado ? 'Reportado' : 'Reportar'}
-      </button>
+      <button class="accion accion--reportar" data-reportar="${c.id}" data-hecho="${reportado?'si':'no'}">${reportado ? 'Reportado' : 'Reportar'}</button>
     </div>
     <div class="caja-respuesta" data-caja="${c.id}" hidden>
       <label for="resp-${c.id}" class="solo-lectores">Respuesta a ${esc(c.autor)}</label>
@@ -559,10 +487,8 @@ function pintarHilos(h){
   $('#titulo-hilos').textContent = `Debate (${contarComentarios(h.comentarios)})`;
   $('#hilos').innerHTML = lista.length
     ? lista.map(c => pintarComentario(c, h)).join('')
-    : `<div class="vacio"><h3>Nadie ha argumentado todavía</h3>
-         <p>El primer comentario marca el tono de todo el hilo.</p></div>`;
-  $$('#orden-comentarios button').forEach(b =>
-    b.setAttribute('aria-pressed', b.dataset.ordenCom === estado.ordenCom));
+    : `<div class="vacio"><h3>Nadie ha argumentado todavía</h3><p>El primer comentario marca el tono de todo el hilo.</p></div>`;
+  $$('#orden-comentarios button').forEach(b => b.setAttribute('aria-pressed', b.dataset.ordenCom === estado.ordenCom));
 }
 
 function pintarLateralDebate(h){
@@ -576,20 +502,16 @@ function pintarLateralDebate(h){
       <li><button type="button" style="cursor:default">Tu voto <span>${miVoto(h.id) ? 'emitido' : 'pendiente'}</span></button></li>
     </ul>`;
   const otros = estado.historias.filter(x => x.id !== h.id).slice(0,4);
-  $('#relacionados').innerHTML = otros.map(o => `
-    <li><button data-ir="${o.id}">${esc(o.titulo.length>52 ? o.titulo.slice(0,52)+'…' : o.titulo)}
-      <span>${contarComentarios(o.comentarios)}</span></button></li>`).join('');
+  $('#relacionados').innerHTML = otros.map(o => `<li><button data-ir="${o.id}">${esc(o.titulo.length>52 ? o.titulo.slice(0,52)+'…' : o.titulo)}<span>${contarComentarios(o.comentarios)}</span></button></li>`).join('');
 }
 
-/* --- ACCIONES EN BASE DE DATOS (VOTOS Y COMENTARIOS) --- */
-
+/* --- ACCIONES EN BASE DE DATOS --- */
 async function votar(idHistoria, idOpcion){
   if(haVotado(idHistoria)) return;
   const h = estado.historias.find(x => x.id === idHistoria);
   const o = h && h.opciones.find(x => x.id === idOpcion);
   if(!o) return;
 
-  // Actualización optimista local
   o.votos = (o.votos || 0) + 1;
   estado.votos[idHistoria] = idOpcion;
   guardarLocal();
@@ -598,12 +520,8 @@ async function votar(idHistoria, idOpcion){
   pintarLateralDebate(h);
   avisar('Voto registrado.');
 
-  // Guardar en Supabase
-  try {
-    await db.from('opciones').update({ votos: o.votos }).match({ historia_id: idHistoria, id: idOpcion });
-  } catch(e){
-    console.error('Error guardando voto en base de datos:', e);
-  }
+  try { await db.from('opciones').update({ votos: o.votos }).match({ historia_id: idHistoria, id: idOpcion }); } 
+  catch(e){ console.error('Error guardando voto:', e); }
 }
 
 async function votarComentario(idCom, dir){
@@ -612,20 +530,15 @@ async function votarComentario(idCom, dir){
   if(!c) return;
   const previo = estado.votosCom[idCom] || 0;
   if(previo === 1) c.arriba--; else if(previo === -1) c.abajo--;
-  if(previo === dir){
-    delete estado.votosCom[idCom];
-  }else{
-    if(dir === 1) c.arriba++; else c.abajo++;
-    estado.votosCom[idCom] = dir;
-  }
+  
+  if(previo === dir){ delete estado.votosCom[idCom]; }
+  else{ if(dir === 1) c.arriba++; else c.abajo++; estado.votosCom[idCom] = dir; }
+  
   guardarLocal();
   pintarHilos(h);
 
-  try {
-    await db.from('comentarios').update({ arriba: c.arriba, abajo: c.abajo }).eq('id', idCom);
-  } catch(e){
-    console.error('Error votando comentario:', e);
-  }
+  try { await db.from('comentarios').update({ arriba: c.arriba, abajo: c.abajo }).eq('id', idCom); } 
+  catch(e){ console.error('Error votando comentario:', e); }
 }
 
 async function publicarRespuesta(texto, idPadre){
@@ -633,25 +546,15 @@ async function publicarRespuesta(texto, idPadre){
   if(!texto.trim()){ avisar('Escribe tu respuesta.'); return false; }
   const h = estado.historias.find(x => x.id === estado.actual);
   const nuevo = {
-    id: idNuevo('c'),
-    historia_id: h.id,
-    padre_id: idPadre || null,
-    autor: estado.usuario,
-    texto: texto.trim(),
-    voto_opcion: miVoto(h.id),
-    arriba: 1,
-    abajo: 0,
-    created_at: new Date().toISOString(),
-    respuestas: []
+    id: idNuevo('c'), historia_id: h.id, padre_id: idPadre || null, autor: estado.usuario,
+    texto: texto.trim(), voto_opcion: miVoto(h.id), arriba: 1, abajo: 0, created_at: new Date().toISOString(), respuestas: []
   };
 
-  // Local
   estado.votosCom[nuevo.id] = 1;
   guardarLocal();
   if(idPadre){
     const padre = buscarComentario(h.comentarios, idPadre);
-    padre.respuestas = padre.respuestas || [];
-    padre.respuestas.unshift(nuevo);
+    padre.respuestas = padre.respuestas || []; padre.respuestas.unshift(nuevo);
   }else{
     h.comentarios.unshift(nuevo);
   }
@@ -659,21 +562,8 @@ async function publicarRespuesta(texto, idPadre){
   pintarLateralDebate(h);
   avisar('Respuesta publicada.');
 
-  // Guardar en Supabase
-  try {
-    await db.from('comentarios').insert({
-      id: nuevo.id,
-      historia_id: nuevo.historia_id,
-      padre_id: nuevo.padre_id,
-      autor: nuevo.autor,
-      texto: nuevo.texto,
-      voto_opcion: nuevo.voto_opcion,
-      arriba: 1,
-      abajo: 0
-    });
-  } catch(e){
-    console.error('Error publicando comentario en base de datos:', e);
-  }
+  try { await db.from('comentarios').insert({ id: nuevo.id, historia_id: nuevo.historia_id, padre_id: nuevo.padre_id, autor: nuevo.autor, texto: nuevo.texto, voto_opcion: nuevo.voto_opcion, arriba: 1, abajo: 0 }); } 
+  catch(e){ console.error('Error publicando comentario:', e); }
   return true;
 }
 
@@ -689,24 +579,21 @@ function compartir(id){
   const h = estado.historias.find(x => x.id === id);
   const url = location.origin + location.pathname + '#' + id;
   if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(url).then(
-      () => avisar('Enlace copiado: ' + h.titulo.slice(0,35) + '…'),
-      () => avisar('Enlace: ' + url)
-    );
+    navigator.clipboard.writeText(url).then(() => avisar('Enlace copiado: ' + h.titulo.slice(0,35) + '…'), () => avisar('Enlace: ' + url));
   }else{
     avisar('Enlace: ' + url);
   }
 }
 
 /* ------------------------------------------------------------
-   F. AUTENTICACIÓN (Supabase Auth)
+   F. AUTENTICACIÓN (Supabase Auth con diseño Reddit/Twitch)
    ------------------------------------------------------------ */
 let veloActivo = null;
 function abrirModal(sel){
   veloActivo = $(sel);
   veloActivo.hidden = false;
   document.body.style.overflow = 'hidden';
-  const primero = veloActivo.querySelector('input,textarea,select');
+  const primero = veloActivo.querySelector('input:not([hidden]),select');
   if(primero) setTimeout(() => primero.focus(), 40);
 }
 function cerrarModal(){
@@ -716,203 +603,166 @@ function cerrarModal(){
   veloActivo = null;
 }
 
-// --- Mensajes de error dentro del modal ---
-function mostrarErrorAuth(texto){
-  const el = $('#s-error');
-  el.textContent = texto;
-  el.hidden = false;
-}
-function ocultarErrorAuth(){
+// Alternar entre modo Iniciar sesión y Crear cuenta
+function cambiarModoAuth(modo){
+  estado.modoModal = modo;
+  const esRegistro = modo === 'registro';
+
+  $('#titulo-sesion').textContent = esRegistro ? 'Crea tu cuenta' : 'Entra en Philotopic';
+  $('#desc-sesion').textContent = esRegistro
+    ? 'Elige tu nombre de usuario para votar y comentar con identidad propia.'
+    : 'Vota en dilemas abiertos y comparte tu perspectiva moral.';
+
+  $('#s-submit').textContent = esRegistro ? 'Crear cuenta' : 'Iniciar sesión';
+  $('#campo-usuario').hidden = !esRegistro;
+  $('#campo-confirmar').hidden = !esRegistro;
+
+  $('#tab-login').setAttribute('aria-selected', !esRegistro);
+  $('#tab-registro').setAttribute('aria-selected', esRegistro);
+
+  const switchText = $('#auth-switch-text');
+  if (switchText) {
+    switchText.innerHTML = esRegistro
+      ? `¿Ya tienes cuenta? <button type="button" class="link-inline" id="btn-switch-modo">Inicia sesión</button>`
+      : `¿No tienes cuenta? <button type="button" class="link-inline" id="btn-switch-modo">Regístrate</button>`;
+    $('#btn-switch-modo').addEventListener('click', () => cambiarModoAuth(esRegistro ? 'entrar' : 'registro'));
+  }
+
   $('#s-error').hidden = true;
 }
 
-// --- Estado de "cargando" en el botón de envío ---
-function ponerCargando(cargando){
-  const btn = $('#s-submit');
-  if(cargando){
-    btn.dataset.textoOriginal = btn.textContent;
-    btn.textContent = 'Un momento…';
-    btn.disabled = true;
-  }else{
-    btn.textContent = btn.dataset.textoOriginal || btn.textContent;
-    btn.disabled = false;
-  }
-}
-
-// --- Mostrar / ocultar contraseña (aplica a #s-password y #s-password-confirmar) ---
-function alternarVisibilidadPassword(btn){
-  const idCampo = btn.dataset.alternarPassword;
-  const input = document.getElementById(idCampo);
-  if(!input) return;
-  const vaAMostrar = input.type === 'password';
-  input.type = vaAMostrar ? 'text' : 'password';
-  btn.innerHTML = vaAMostrar ? ICONO_OJO_CERRADO : ICONO_OJO_ABIERTO;
-  btn.setAttribute('aria-pressed', String(vaAMostrar));
-  btn.setAttribute('aria-label', vaAMostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
-}
-function reiniciarVisibilidadPassword(idCampo){
-  const input = document.getElementById(idCampo);
-  const btn = $(`[data-alternar-password="${idCampo}"]`);
-  if(input) input.type = 'password';
-  if(btn){
-    btn.innerHTML = ICONO_OJO_ABIERTO;
-    btn.setAttribute('aria-pressed', 'false');
-    btn.setAttribute('aria-label', 'Mostrar contraseña');
-  }
-}
-
-// --- Cambiar entre pestaña "entrar" y "registro" ---
-function cambiarModoAuth(modo){
-  estado.modoAuth = modo;
-  $$('#segmentado-auth [data-tab-auth]').forEach(b =>
-    b.setAttribute('aria-selected', b.dataset.tabAuth === modo));
-
-  $('#campo-username').hidden = modo !== 'registro';
-  $('#campo-confirmar').hidden = modo !== 'registro';
-  $('#s-password').autocomplete = modo === 'registro' ? 'new-password' : 'current-password';
-
-  $('#titulo-sesion').textContent = modo === 'registro' ? 'Crea tu cuenta' : 'Entra en el debate';
-  $('#auth-subtitulo').textContent = modo === 'registro'
-    ? 'Únete para votar y debatir con tu propio nombre.'
-    : 'Vota y participa en los debates con tu cuenta.';
-  $('#s-submit').textContent = modo === 'registro' ? 'Crear cuenta' : 'Entrar';
-  $('#auth-pie-texto').textContent = modo === 'registro' ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?';
-
-  const enlacePie = $('#btn-alternar-modo');
-  enlacePie.textContent = modo === 'registro' ? 'Inicia sesión' : 'Regístrate';
-  enlacePie.dataset.tabAuth = modo === 'registro' ? 'entrar' : 'registro';
-
-  ocultarErrorAuth();
-}
-
-function abrirSesion(modo){
-  cambiarModoAuth(modo || 'entrar');
-  $('#form-auth').reset();
-  reiniciarVisibilidadPassword('s-password');
-  reiniciarVisibilidadPassword('s-password-confirmar');
+function abrirSesion(modo = 'entrar'){
+  cambiarModoAuth(modo);
+  
+  // Limpiar campos y resetear ojitos cada vez que se abre
+  $('#s-email').value = '';
+  $('#s-password').value = '';
+  if($('#s-usuario')) $('#s-usuario').value = '';
+  if($('#s-password-confirm')) $('#s-password-confirm').value = '';
+  
+  $$('.btn-toggle-password').forEach(btn => resetearOjoContrasena(btn));
+  
   abrirModal('#velo-sesion');
 }
 
-// --- Traducción de errores de Supabase Auth a mensajes en español ---
+// Ojito de contraseña
+function alternarVerContrasena(btn) {
+  const targetId = btn.dataset.target;
+  const input = document.getElementById(targetId);
+  if (!input) return;
+
+  const esPassword = input.type === 'password';
+  input.type = esPassword ? 'text' : 'password';
+
+  btn.innerHTML = esPassword
+    ? `<svg class="icon-ojo" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`
+    : `<svg class="icon-ojo" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+
+  btn.setAttribute('aria-label', esPassword ? 'Ocultar contraseña' : 'Mostrar contraseña');
+}
+
+function resetearOjoContrasena(btn){
+  const targetId = btn.dataset.target;
+  const input = document.getElementById(targetId);
+  if(input) input.type = 'password';
+  btn.innerHTML = `<svg class="icon-ojo" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+}
+
+// Traductor de errores de Supabase Auth
 function traducirErrorAuth(error){
   const msg = (error && error.message) || '';
   if(/invalid login credentials/i.test(msg)) return 'Correo o contraseña incorrectos.';
   if(/already registered|user already exists/i.test(msg)) return 'Ya existe una cuenta con ese correo.';
-  if(/email not confirmed/i.test(msg)) return 'Confirma tu correo antes de iniciar sesión.';
   if(/password should be at least/i.test(msg)) return 'La contraseña necesita al menos 6 caracteres.';
   if(/unable to validate email address/i.test(msg)) return 'Ese correo no parece válido.';
   if(/rate limit/i.test(msg)) return 'Demasiados intentos. Espera un momento y vuelve a intentarlo.';
   return msg || 'Ha ocurrido un error. Inténtalo de nuevo.';
 }
 
-// --- Registro ---
-async function registrarUsuario({ username, email, password, confirmar }){
-  if(username.length < 3){
-    return mostrarErrorAuth('El nombre de usuario necesita al menos 3 caracteres.');
-  }
-  if(!email){
-    return mostrarErrorAuth('Escribe tu correo electrónico.');
-  }
-  if(password.length < 6){
-    return mostrarErrorAuth('La contraseña necesita al menos 6 caracteres.');
-  }
-  if(!confirmar){
-    return mostrarErrorAuth('Repite la contraseña para confirmarla.');
-  }
-  if(password !== confirmar){
-    return mostrarErrorAuth('Las contraseñas no coinciden.');
-  }
+// Ejecutar Login / Registro al pulsar "Entrar" o "Crear cuenta"
+async function procesarAuth() {
+  const errorEl = $('#s-error');
+  errorEl.hidden = true;
 
-  ponerCargando(true);
-  const { data, error } = await db.auth.signUp({
-    email,
-    password,
-    options: { data: { username } }
-  });
-  ponerCargando(false);
+  const email = $('#s-email').value.trim();
+  const password = $('#s-password').value;
+  const username = $('#s-usuario') ? $('#s-usuario').value.trim() : '';
+  const confirmPassword = $('#s-password-confirm') ? $('#s-password-confirm').value : '';
 
-  if(error){
-    return mostrarErrorAuth(traducirErrorAuth(error));
-  }
-
-  if(data.session){
-    sincronizarSesion(data.session);
-    cerrarModal();
-    avisar('Bienvenido, ' + username + '.');
-  }else{
-    // El proyecto de Supabase requiere confirmar el correo antes de crear sesión
-    cerrarModal();
-    avisar('Cuenta creada. Revisa tu correo para confirmarla.');
-  }
-}
-
-// --- Inicio de sesión con correo y contraseña ---
-async function iniciarSesionUsuario({ email, password }){
-  if(!email || !password){
-    return mostrarErrorAuth('Escribe tu correo y tu contraseña.');
-  }
-
-  ponerCargando(true);
-  const { data, error } = await db.auth.signInWithPassword({ email, password });
-  ponerCargando(false);
-
-  if(error){
-    return mostrarErrorAuth(traducirErrorAuth(error));
-  }
-
-  sincronizarSesion(data.session);
-  cerrarModal();
-  avisar('Hola de nuevo.');
-}
-
-// --- Inicio de sesión con Google ---
-async function continuarConGoogle(){
-  ocultarErrorAuth();
-  const { error } = await db.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.origin + window.location.pathname }
-  });
-  if(error){
-    mostrarErrorAuth(traducirErrorAuth(error));
-  }
-  // Si no hay error, el navegador redirige a Google; onAuthStateChange
-  // se encargará de sincronizar la sesión al volver.
-}
-
-// --- Cierre de sesión real ---
-async function salir(){
-  const { error } = await db.auth.signOut();
-  if(error){
-    avisar('No se pudo cerrar la sesión.');
+  if (!email || !password) {
+    errorEl.textContent = 'Introduce correo y contraseña.';
+    errorEl.hidden = false;
     return;
   }
-  sincronizarSesion(null);
-  avisar('Sesión cerrada.');
-  if(estado.actual) pintarDebate();
+
+  if (estado.modoModal === 'registro') {
+    if (!username || username.length < 3) {
+      errorEl.textContent = 'El nombre de usuario es obligatorio (mínimo 3 letras).';
+      errorEl.hidden = false;
+      return;
+    }
+    if (password !== confirmPassword) {
+      errorEl.textContent = 'Las contraseñas no coinciden. Revisa los campos.';
+      errorEl.hidden = false;
+      return;
+    }
+
+    avisar('Creando cuenta…');
+    const { data, error } = await db.auth.signUp({
+      email, password, options: { data: { username: username.replace(/\s+/g, '_') } }
+    });
+
+    if (error) {
+      errorEl.textContent = traducirErrorAuth(error);
+      errorEl.hidden = false;
+      return;
+    }
+
+    if (data.user) {
+      establecerSesion(data.user);
+      cerrarModal();
+      avisar('Cuenta creada con éxito. Bienvenido, ' + estado.usuario + '.');
+    }
+  } else {
+    avisar('Iniciando sesión…');
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      errorEl.textContent = traducirErrorAuth(error);
+      errorEl.hidden = false;
+      return;
+    }
+
+    if (data.user) {
+      establecerSesion(data.user);
+      cerrarModal();
+      avisar('Sesión iniciada como ' + estado.usuario + '.');
+    }
+  }
 }
 
-// --- Sincroniza el estado local con la sesión de Supabase Auth ---
-function sincronizarSesion(session){
-  estado.session = session;
+async function loginConGoogle(){
+  const { error } = await db.auth.signInWithOAuth({
+    provider: 'google', options: { redirectTo: window.location.origin + window.location.pathname }
+  });
+  if(error) avisar('Error conectando con Google: ' + error.message);
+}
 
-  if(session && session.user){
-    const meta = session.user.user_metadata || {};
-    estado.usuario = meta.username
-      || (session.user.email ? session.user.email.split('@')[0] : 'usuario');
-    estado.userId = session.user.id;
-  }else{
+async function salir(){
+  await db.auth.signOut();
+  establecerSesion(null);
+  avisar('Has cerrado sesión.');
+}
+
+function establecerSesion(user){
+  estado.userAuth = user;
+  if(user){
+    estado.usuario = (user.user_metadata && user.user_metadata.username) || (user.email ? user.email.split('@')[0] : 'usuario');
+  } else {
     estado.usuario = null;
-    estado.userId = null;
   }
-
   pintarPerfil();
-
-  // Si hay un debate abierto, refrescamos el editor para que muestre
-  // "Publicas como X" o el aviso de iniciar sesión, según corresponda.
-  if(estado.actual && estado.historias.length){
-    const h = estado.historias.find(x => x.id === estado.actual);
-    if(h){ pintarEditor(h); pintarLateralDebate(h); }
-  }
+  if(estado.actual) pintarDebate();
 }
 
 function pintarPerfil(){
@@ -921,8 +771,7 @@ function pintarPerfil(){
     invitado.hidden = true; invitado.style.display = 'none';
     perfil.hidden = false;
     perfil.textContent = estado.usuario.slice(0,2).toUpperCase();
-    perfil.setAttribute('aria-label', 'Cerrar sesión de ' + estado.usuario);
-    perfil.title = 'Cerrar sesión';
+    perfil.setAttribute('aria-label', 'Perfil de ' + estado.usuario + ' (clic para salir)');
   }else{
     invitado.hidden = false; invitado.style.display = 'flex';
     perfil.hidden = true;
@@ -936,39 +785,27 @@ document.addEventListener('click', ev => {
   const t = ev.target;
   const el = sel => t.closest(sel);
 
-  const ir = el('[data-ir]');
-  if(ir){ ev.preventDefault(); abrirDebate(ir.dataset.ir); return; }
-
-  const op = el('[data-votar]');
-  if(op){ votar(estado.actual, op.dataset.votar); return; }
-
-  const vc = el('[data-voto-com]');
-  if(vc){ votarComentario(vc.dataset.votoCom, Number(vc.dataset.dir)); return; }
+  const ir = el('[data-ir]'); if(ir){ ev.preventDefault(); abrirDebate(ir.dataset.ir); return; }
+  const op = el('[data-votar]'); if(op){ votar(estado.actual, op.dataset.votar); return; }
+  const vc = el('[data-voto-com]'); if(vc){ votarComentario(vc.dataset.votoCom, Number(vc.dataset.dir)); return; }
 
   const rp = el('[data-responder]');
   if(rp){
-    if(!estaLogado()){ abrirSesion('entrar'); avisar('Inicia sesión para responder.'); return; }
+    if(!estaLogado()){ abrirSesion('entrar'); avisar('Entra para responder.'); return; }
     const caja = $(`[data-caja="${rp.dataset.responder}"]`);
     caja.hidden = !caja.hidden;
     if(!caja.hidden) caja.querySelector('textarea').focus();
     return;
   }
-  const cn = el('[data-cancelar-respuesta]');
-  if(cn){ $(`[data-caja="${cn.dataset.cancelarRespuesta}"]`).hidden = true; return; }
-  const env = el('[data-enviar-respuesta]');
-  if(env){
-    const id = env.dataset.enviarRespuesta;
-    publicarRespuesta($(`#resp-${id}`).value, id);
-    return;
-  }
+  const cn = el('[data-cancelar-respuesta]'); if(cn){ $(`[data-caja="${cn.dataset.cancelarRespuesta}"]`).hidden = true; return; }
+  const env = el('[data-enviar-respuesta]'); if(env){ publicarRespuesta($(`#resp-${env.dataset.enviarRespuesta}`).value, env.dataset.enviarRespuesta); return; }
 
   const sh = el('[data-compartir]'); if(sh){ compartir(sh.dataset.compartir); return; }
   const rep = el('[data-reportar]'); if(rep){ reportar(rep.dataset.reportar); return; }
 
   const cat = el('[data-categoria]');
   if(cat){
-    estado.categoria = cat.dataset.categoria;
-    $('#tema-cabecera').value = estado.categoria;
+    estado.categoria = cat.dataset.categoria; $('#tema-cabecera').value = estado.categoria;
     $$('#chips-categoria .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.categoria === estado.categoria));
     if(estado.actual) volverAlFeed(); else pintarFeed();
     return;
@@ -976,94 +813,62 @@ document.addEventListener('click', ev => {
 
   const tab = el('[data-orden]');
   if(tab){
-    estado.orden = tab.dataset.orden;
-    $$('#pestanas-orden .pestana').forEach(p => p.setAttribute('aria-selected', p === tab));
-    pintarFeed();
-    return;
+    estado.orden = tab.dataset.orden; $$('#pestanas-orden .pestana').forEach(p => p.setAttribute('aria-selected', p === tab));
+    pintarFeed(); return;
   }
 
   const oc = el('[data-orden-com]');
   if(oc){
-    estado.ordenCom = oc.dataset.ordenCom;
-    pintarHilos(estado.historias.find(x => x.id === estado.actual));
+    estado.ordenCom = oc.dataset.ordenCom; pintarHilos(estado.historias.find(x => x.id === estado.actual));
     return;
   }
 
-  const fmt = el('[data-formato]');
-  if(fmt){ aplicarFormato(fmt.dataset.formato); return; }
+  const fmt = el('[data-formato]'); if(fmt){ aplicarFormato(fmt.dataset.formato); return; }
 
-  // --- Autenticación ---
-  const ses = el('[data-abrir-sesion]');
-  if(ses){ abrirSesion(ses.dataset.abrirSesion); return; }
-
-  const tabAuth = el('[data-tab-auth]');
-  if(tabAuth){ cambiarModoAuth(tabAuth.dataset.tabAuth); return; }
-
-  const ojo = el('[data-alternar-password]');
-  if(ojo){ alternarVisibilidadPassword(ojo); return; }
-
+  const ses = el('[data-abrir-sesion]'); if(ses){ abrirSesion(ses.dataset.abrirSesion); return; }
   if(el('[data-cerrar]')){ cerrarModal(); return; }
   if(t.classList && t.classList.contains('velo')){ cerrarModal(); return; }
 });
 
 function aplicarFormato(tipo){
-  const ta = $('#texto-respuesta');
-  if(!ta) return;
-  const ini = ta.selectionStart, fin = ta.selectionEnd;
-  const sel = ta.value.slice(ini, fin) || 'texto';
+  const ta = $('#texto-respuesta'); if(!ta) return;
+  const ini = ta.selectionStart, fin = ta.selectionEnd, sel = ta.value.slice(ini, fin) || 'texto';
   const envoltura = {negrita:['**','**'], cursiva:['*','*'], cita:['> ','']}[tipo];
   ta.value = ta.value.slice(0,ini) + envoltura[0] + sel + envoltura[1] + ta.value.slice(fin);
-  ta.focus();
-  ta.setSelectionRange(ini + envoltura[0].length, ini + envoltura[0].length + sel.length);
+  ta.focus(); ta.setSelectionRange(ini + envoltura[0].length, ini + envoltura[0].length + sel.length);
 }
 
 document.addEventListener('click', async ev => {
   if(!ev.target.closest('#btn-publicar-respuesta')) return;
-  const ta = $('#texto-respuesta');
-  const sel = $('#voto-editor');
+  const ta = $('#texto-respuesta'), sel = $('#voto-editor');
   if(sel && sel.value) votar(estado.actual, sel.value);
   const publicado = await publicarRespuesta(ta ? ta.value : '', null);
-  if(publicado){
-    const nuevoTa = $('#texto-respuesta');
-    if(nuevoTa) nuevoTa.value = '';
-  }
+  if(publicado && ta) ta.value = '';
 });
 
-// --- Envío del formulario de autenticación ---
-$('#form-auth').addEventListener('submit', async e => {
-  e.preventDefault();
-  ocultarErrorAuth();
+// -- Eventos del modal de Auth (Nuevos IDs) --
+$('#tab-login').addEventListener('click', () => cambiarModoAuth('entrar'));
+$('#tab-registro').addEventListener('click', () => cambiarModoAuth('registro'));
+$('#s-submit').addEventListener('click', procesarAuth);
+$('#btn-google').addEventListener('click', loginConGoogle);
 
-  const email = $('#s-email').value.trim();
-  const password = $('#s-password').value;
-
-  if(estado.modoAuth === 'registro'){
-    const username = $('#s-usuario').value.trim();
-    const confirmar = $('#s-password-confirmar').value;
-    await registrarUsuario({ username, email, password, confirmar });
-  }else{
-    await iniciarSesionUsuario({ email, password });
-  }
+// Asignar los eventos de los ojitos de contraseña
+$$('.btn-toggle-password').forEach(btn => {
+  btn.addEventListener('click', () => alternarVerContrasena(btn));
 });
 
-$('#btn-google').addEventListener('click', continuarConGoogle);
+// Intro en contraseñas dispara el submit
+$('#s-password').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
+if($('#s-password-confirm')) $('#s-password-confirm').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
 
 $('#form-buscar').addEventListener('submit', e => e.preventDefault());
-$('#buscar').addEventListener('input', e => {
-  estado.busqueda = e.target.value;
-  if(estado.actual) volverAlFeed(); else pintarFeed();
-});
-
+$('#buscar').addEventListener('input', e => { estado.busqueda = e.target.value; if(estado.actual) volverAlFeed(); else pintarFeed(); });
 $('#tema-cabecera').addEventListener('change', e => {
-  estado.categoria = e.target.value;
-  $$('#chips-categoria .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.categoria === estado.categoria));
+  estado.categoria = e.target.value; $$('#chips-categoria .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.categoria === estado.categoria));
   if(estado.actual) volverAlFeed(); else pintarFeed();
 });
 
-$('#btn-debate-dia').addEventListener('click', () => {
-  const d = debateDelDia();
-  if(d) abrirDebate(d.id);
-});
+$('#btn-debate-dia').addEventListener('click', () => { const d = debateDelDia(); if(d) abrirDebate(d.id); });
 $('#btn-notificaciones').addEventListener('click', () => avisar('Notificaciones conectadas.'));
 $('#zona-perfil').addEventListener('click', salir);
 $('#ir-inicio').addEventListener('click', e => { e.preventDefault(); volverAlFeed(); });
@@ -1071,26 +876,33 @@ $('#btn-volver').addEventListener('click', e => { e.preventDefault(); volverAlFe
 
 document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarModal(); });
 
-// Inicialización de la aplicación
+// Inicialización de la sesión y datos
 (async function iniciar(){
-  // Escucha cambios de sesión (login, logout, retorno de OAuth, refresco de token…)
-  db.auth.onAuthStateChange((_evento, session) => {
-    sincronizarSesion(session);
+  // 1. Escuchar cambios de sesión de Supabase
+  db.auth.onAuthStateChange((event, session) => {
+    if(session && session.user){
+      establecerSesion(session.user);
+    } else {
+      establecerSesion(null);
+    }
   });
 
-  pintarPerfil();
+  // 2. Comprobar sesión activa de inmediato
+  const { data: { session } } = await db.auth.getSession();
+  if(session && session.user){
+    establecerSesion(session.user);
+  } else {
+    pintarPerfil();
+  }
+
+  // 3. Cargar las historias de base de datos
   avisar('Cargando debates desde la nube…');
-
-  const [resSesion] = await Promise.all([
-    db.auth.getSession(),
-    cargarDatosSupabase()
-  ]);
-  sincronizarSesion(resSesion.data.session);
-
+  await cargarDatosSupabase();
   pintarCategorias();
   pintarDestacado();
   pintarFeed();
 
+  // Si abrimos la web desde un enlace compartido, abrir ese debate directamente
   const destino = location.hash.slice(1);
   if(destino && estado.historias.some(h => h.id === destino)) abrirDebate(destino);
 })();

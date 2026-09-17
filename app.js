@@ -499,7 +499,7 @@ async function votar(idHistoria, idOpcion){
   const h = estado.historias.find(x => x.id === idHistoria); const o = h && h.opciones.find(x => x.id === idOpcion);
   if(!o) return; o.votos = (o.votos || 0) + 1; estado.votos[idHistoria] = idOpcion;
   guardarLocal(); pintarEncuesta(h); pintarEditor(h); pintarLateralDebate(h); avisar('Voto registrado.');
-  try { await db.from('opciones').update({ votos: o.votos }).match({ historia_id: idHistoria, id: idOpcion }); } catch(e){ console.error('Error guardando voto:', e); }
+  try { await db.rpc('registrar_voto', { p_opcion_id: idOpcion }); } catch(e){ console.error(e); }
 }
 
 async function votarComentario(idCom, dir){

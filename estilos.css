@@ -151,7 +151,7 @@ img{max-width:100%;}
 .campana:hover{background:var(--niebla-alta);}
 .campana__punto{
   position:absolute;top:8px;right:9px;width:8px;height:8px;border-radius:50%;
-  background:var(--indigo);border:2px solid var(--hielo);
+  background:var(--alerta);border:2px solid var(--hielo);
 }
 /* Avatar del perfil */
 .avatar{

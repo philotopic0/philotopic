@@ -25,6 +25,7 @@
   <div class="envoltura cabecera__fila">
 
     <a href="#" class="logo" id="ir-inicio" aria-label="Philotopic, inicio">
+      <!-- Marca: un círculo partido en dos posturas -->
       <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
         <circle cx="13" cy="13" r="11" fill="none" stroke="#3B2EEA" stroke-width="2"/>
         <path d="M13 2a11 11 0 0 1 0 22 7 7 0 0 1 0-22Z" fill="#3B2EEA"/>
@@ -62,7 +63,7 @@
       </div>
 
       <!-- Sesión abierta -->
-      <button id="zona-perfil" class="avatar avatar--boton" hidden aria-label="Tu perfil (clic para cerrar sesión)"></button>
+      <button id="zona-perfil" class="avatar avatar--boton" hidden aria-label="Tu perfil"></button>
     </div>
   </div>
 </header>
@@ -76,8 +77,10 @@
     <div class="disposicion">
 
       <div>
+        <!-- Debate del día: entrada a la historia más viva del momento -->
         <section class="destacado" id="debate-dia" aria-labelledby="titulo-debate-dia"></section>
 
+        <!-- Filtros de exploración -->
         <nav aria-label="Ordenar el feed">
           <div class="pestanas" role="tablist" id="pestanas-orden">
             <button class="pestana" role="tab" data-orden="tendencias" aria-selected="true">Tendencias</button>
@@ -125,9 +128,13 @@
 
     <div class="disposicion">
       <div>
+        <!-- Relato + pregunta -->
         <article class="hoja" id="hoja-relato"></article>
+        <!-- Encuesta -->
         <section class="encuesta" id="modulo-encuesta" aria-labelledby="titulo-encuesta"></section>
+        <!-- Editor de respuesta -->
         <section class="editor" id="modulo-editor" aria-labelledby="titulo-editor"></section>
+        <!-- Hilos -->
         <section aria-labelledby="titulo-hilos">
           <div class="hilos__cabecera">
             <h2 id="titulo-hilos">Debate</h2>
@@ -160,86 +167,113 @@
 </footer>
 
 <!-- ============================================================
-     MODAL — AUTENTICACIÓN (LOGIN / REGISTRO ESTILO REDDIT/TWITCH)
+     MODAL — AUTENTICACIÓN (Iniciar sesión / Crear cuenta)
      ============================================================ -->
 <div class="velo" id="velo-sesion" hidden>
-  <div class="modal auth-card" role="dialog" aria-modal="true" aria-labelledby="titulo-sesion">
-    
-    <button class="cerrar auth-card__cerrar" data-cerrar aria-label="Cerrar">&times;</button>
+  <div class="tarjeta-auth" style="position:relative;width:100%;max-width:400px" role="dialog" aria-modal="true" aria-labelledby="titulo-sesion">
 
-    <div class="auth-card__header">
-      <div class="auth-card__badge">
-        <svg width="22" height="22" viewBox="0 0 26 26" aria-hidden="true">
-          <circle cx="13" cy="13" r="11" fill="none" stroke="#3B2EEA" stroke-width="2.2"/>
-          <path d="M13 2a11 11 0 0 1 0 22 7 7 0 0 1 0-22Z" fill="#3B2EEA"/>
-        </svg>
-      </div>
-      <h2 id="titulo-sesion" class="auth-card__title">Entra en Philotopic</h2>
-      <p id="desc-sesion" class="auth-card__subtitle">Vota en dilemas abiertos y comparte tu perspectiva moral.</p>
-    </div>
+    <button class="cerrar" data-cerrar aria-label="Cerrar" style="position:absolute;top:14px;right:14px">&times;</button>
 
-    <!-- Segmented tabs -->
-    <div class="auth-tabs" role="tablist">
-      <button class="auth-tab" id="tab-login" type="button" aria-selected="true">Iniciar sesión</button>
-      <button class="auth-tab" id="tab-registro" type="button" aria-selected="false">Crear cuenta</button>
-    </div>
-
-    <!-- Botón OAuth con Google -->
-    <button class="btn-auth-social" id="btn-google" type="button">
-      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>
-        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24Z"/>
-        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15Z"/>
-        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98Z"/>
+    <!-- Cabecera: logo, título y subtítulo -->
+    <div class="auth__cabecera">
+      <svg width="30" height="30" viewBox="0 0 26 26" aria-hidden="true" class="auth__logo">
+        <circle cx="13" cy="13" r="11" fill="none" stroke="#3B2EEA" stroke-width="2"/>
+        <path d="M13 2a11 11 0 0 1 0 22 7 7 0 0 1 0-22Z" fill="#3B2EEA"/>
       </svg>
-      <span>Continuar con Google</span>
+      <h2 id="titulo-sesion">Entra en el debate</h2>
+      <p class="auth__subtitulo" id="auth-subtitulo">Vota y participa en los debates con tu propio nombre.</p>
+    </div>
+
+    <!-- Pestañas: Iniciar sesión / Crear cuenta -->
+    <div class="segmentado" id="segmentado-auth" role="tablist" aria-label="Modo de acceso">
+      <button type="button" class="segmentado__tab" role="tab" id="tab-entrar"
+              data-tab-auth="entrar" aria-selected="true" aria-controls="form-auth">
+        Iniciar sesión
+      </button>
+      <button type="button" class="segmentado__tab" role="tab" id="tab-registro"
+              data-tab-auth="registro" aria-selected="false" aria-controls="form-auth">
+        Crear cuenta
+      </button>
+    </div>
+
+    <!-- Acceso con Google -->
+    <button type="button" class="btn-google" id="btn-google" data-auth-google>
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+        <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62Z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.95v2.33A9 9 0 0 0 9 18Z"/>
+        <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.16.28-1.7V4.97H.95A9 9 0 0 0 0 9c0 1.45.35 2.83.95 4.03l3-2.33Z"/>
+        <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58A8.97 8.97 0 0 0 9 0 9 9 0 0 0 .95 4.97l3 2.33C4.66 5.17 6.65 3.58 9 3.58Z"/>
+      </svg>
+      Continuar con Google
     </button>
 
-    <div class="auth-divider">
-      <span>o bien con correo</span>
-    </div>
+    <!-- Separador -->
+    <div class="separador"><span>o bien con correo</span></div>
 
-    <!-- Formulario principal -->
-    <div class="auth-form">
-      <!-- Campo obligatorio: Nombre de usuario (sólo en registro) -->
-      <div class="auth-campo" id="campo-usuario" hidden>
-        <label for="s-usuario">Nombre de usuario <span class="req">*</span></label>
-        <input type="text" id="s-usuario" maxlength="22" placeholder="ej. martaenduda" autocomplete="username">
-        <span class="auth-campo__hint">Será visible en todos tus votos y comentarios.</span>
+    <!-- Formulario -->
+    <form id="form-auth" novalidate>
+
+      <!-- Solo en registro -->
+      <div class="campo-auth" id="campo-username" hidden>
+        <label for="s-usuario">Nombre de usuario <span class="obligatorio" aria-hidden="true">*</span></label>
+        <input type="text" id="s-usuario" name="usuario" maxlength="22"
+               placeholder="p. ej. martaenduda" autocomplete="username">
       </div>
 
-      <div class="auth-campo">
-        <label for="s-email">Correo electrónico</label>
-        <input type="email" id="s-email" placeholder="tu@correo.com" autocomplete="email">
+      <div class="campo-auth">
+        <label for="s-email">Correo electrónico <span class="obligatorio" aria-hidden="true">*</span></label>
+        <input type="email" id="s-email" name="email"
+               placeholder="tucorreo@ejemplo.com" autocomplete="email">
       </div>
 
-      <div class="auth-campo">
-        <label for="s-password">Contraseña</label>
-        <div class="input-password-wrapper">
-          <input type="password" id="s-password" minlength="6" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
-          <button type="button" class="btn-toggle-password" id="btn-toggle-pass" aria-label="Mostrar contraseña">
-            <!-- Icono Ojo (abierto por defecto en estado visible / cerrado cuando esté oculto) -->
-            <svg class="icon-ojo" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+      <div class="campo-auth">
+        <label for="s-password">Contraseña <span class="obligatorio" aria-hidden="true">*</span></label>
+        <div class="campo-password">
+          <input type="password" id="s-password" name="password"
+                 placeholder="Tu contraseña" autocomplete="current-password">
+          <button type="button" class="alternar-password" data-alternar-password="s-password"
+                  aria-label="Mostrar contraseña" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/>
               <circle cx="12" cy="12" r="3"/>
             </svg>
           </button>
         </div>
       </div>
 
-      <p class="error auth-card__error" id="s-error" hidden></p>
+      <!-- Solo en registro -->
+      <div class="campo-auth" id="campo-confirmar" hidden>
+        <label for="s-password-confirmar">Repetir contraseña <span class="obligatorio" aria-hidden="true">*</span></label>
+        <div class="campo-password">
+          <input type="password" id="s-password-confirmar" name="password-confirmar"
+                 placeholder="Vuelve a escribirla" autocomplete="new-password">
+          <button type="button" class="alternar-password" data-alternar-password="s-password-confirmar"
+                  aria-label="Mostrar contraseña" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
 
-      <button class="btn btn--principal auth-card__submit" id="s-submit" type="button">Entrar</button>
-    </div>
+      <p class="error" id="s-error" role="alert" hidden></p>
 
-    <div class="auth-card__footer">
-      <p id="auth-switch-text" class="meta">
-        ¿No tienes cuenta? <button type="button" class="link-inline" id="btn-switch-modo">Regístrate</button>
-      </p>
-    </div>
+      <button type="submit" class="btn btn--principal auth-submit" id="s-submit">Entrar</button>
+    </form>
+
+    <!-- Pie: conmutar entre iniciar sesión y registro -->
+    <p class="auth__pie">
+      <span id="auth-pie-texto">¿No tienes cuenta?</span>
+      <button type="button" class="enlace-auth" id="btn-alternar-modo" data-tab-auth="registro">Regístrate</button>
+    </p>
 
   </div>
 </div>
+
+<div class="aviso" id="aviso" role="status" aria-live="polite"></div>
 
 <!-- Librería oficial de Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

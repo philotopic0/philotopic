@@ -502,8 +502,10 @@ img{max-width:100%;}
   .solo-movil{display:none !important;}
 }
 /* ============================================================
-   ESTILOS MODAL AUTH — ESTILO REDDIT / TWITCH
+   11. MODAL AUTH — ESTILO REDDIT / TWITCH
    ============================================================ */
+
+/* Contenedor principal de la tarjeta modal */
 .auth-card {
   max-width: 440px !important;
   width: 92%;
@@ -515,6 +517,7 @@ img{max-width:100%;}
   text-align: left;
 }
 
+/* Botón de cierre superior */
 .auth-card__cerrar {
   position: absolute;
   top: 18px;
@@ -534,11 +537,11 @@ img{max-width:100%;}
   color: #0F172A;
 }
 
+/* Cabecera del modal (Logo y textos) */
 .auth-card__header {
   text-align: center;
   margin-bottom: 20px;
 }
-
 .auth-card__badge {
   display: inline-flex;
   align-items: center;
@@ -546,10 +549,9 @@ img{max-width:100%;}
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: #EEF2FF;
+  background: var(--indigo-velo);
   margin-bottom: 12px;
 }
-
 .auth-card__title {
   font-size: 1.35rem;
   font-weight: 700;
@@ -557,14 +559,14 @@ img{max-width:100%;}
   margin: 0 0 6px;
   letter-spacing: -0.02em;
 }
-
 .auth-card__subtitle {
   font-size: 0.88rem;
   color: #64748B;
   margin: 0;
+  line-height: 1.4;
 }
 
-/* Tabs conmutadoras estilo app nativa */
+/* Segmented Control (Pestañas de navegación) */
 .auth-tabs {
   display: flex;
   background: #F1F5F9;
@@ -573,7 +575,6 @@ img{max-width:100%;}
   margin-bottom: 18px;
   gap: 4px;
 }
-
 .auth-tab {
   flex: 1;
   border: none;
@@ -586,14 +587,13 @@ img{max-width:100%;}
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 .auth-tab[aria-selected="true"] {
   background: #FFFFFF;
   color: #0F172A;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-/* Botón Social */
+/* Botón de acceso social (Google) */
 .btn-auth-social {
   width: 100%;
   display: flex;
@@ -615,7 +615,7 @@ img{max-width:100%;}
   border-color: #CBD5E1;
 }
 
-/* Divisor elegante */
+/* Divisor elegante "O con correo" */
 .auth-divider {
   display: flex;
   align-items: center;
@@ -637,29 +637,25 @@ img{max-width:100%;}
   padding: 0 12px;
 }
 
-/* Campos de entrada */
+/* Formulario principal y campos */
 .auth-form {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
-
 .auth-campo {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
-
 .auth-campo label {
   font-size: 0.82rem;
   font-weight: 600;
   color: #334155;
 }
-
 .auth-campo .req {
-  color: #EF4444;
+  color: var(--alerta);
 }
-
 .auth-campo input {
   width: 100%;
   padding: 10px 14px;
@@ -670,30 +666,27 @@ img{max-width:100%;}
   transition: all 0.15s ease;
   box-sizing: border-box;
 }
-
 .auth-campo input:focus {
   outline: none;
   background: #FFFFFF;
-  border-color: #3B2EEA;
+  border-color: var(--indigo);
   box-shadow: 0 0 0 3px rgba(59, 46, 234, 0.12);
 }
-
 .auth-campo__hint {
   font-size: 0.75rem;
   color: #64748B;
+  margin-top: -2px;
 }
 
-/* Campo contraseña con toggle de visualización */
+/* Wrapper para el input de contraseña + botón Ojo */
 .input-password-wrapper {
   position: relative;
   display: flex;
   align-items: center;
 }
-
 .input-password-wrapper input {
-  padding-right: 44px;
+  padding-right: 44px; /* Espacio para que el texto no pise el ojo */
 }
-
 .btn-toggle-password {
   position: absolute;
   right: 10px;
@@ -706,50 +699,62 @@ img{max-width:100%;}
   justify-content: center;
   padding: 6px;
   border-radius: 6px;
-  transition: color 0.15s;
+  transition: color 0.15s, background 0.15s;
 }
 .btn-toggle-password:hover {
   color: #334155;
+  background: #F1F5F9;
 }
 
-/* Botón submit y pie */
+/* Botón primario de enviar */
 .auth-card__submit {
   width: 100%;
   margin-top: 8px;
-  padding: 11px !important;
+  padding: 12px !important;
   font-size: 0.96rem !important;
   font-weight: 600;
   border-radius: 10px !important;
-  background: #3B2EEA !important;
+  background: var(--indigo) !important;
   color: #FFF !important;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(59, 46, 234, 0.28);
+  border: none;
+  transition: background 0.15s;
+}
+.auth-card__submit:hover {
+  background: var(--indigo-oscuro) !important;
 }
 
+/* Caja de alerta para mensajes de error */
 .auth-card__error {
   margin: 0;
-  padding: 8px 12px;
+  padding: 10px 14px;
   background: #FEF2F2;
   border: 1px solid #FCA5A5;
   border-radius: 8px;
   color: #B91C1C;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 500;
+  line-height: 1.4;
 }
 
+/* Pie de tarjeta con enlaces de alternancia */
 .auth-card__footer {
   text-align: center;
-  margin-top: 18px;
+  margin-top: 20px;
   font-size: 0.84rem;
   color: #64748B;
 }
-
 .link-inline {
   background: none;
   border: none;
-  color: #3B2EEA;
+  color: var(--indigo);
   font-weight: 600;
   cursor: pointer;
   padding: 0;
   text-decoration: underline;
+  transition: color 0.15s;
+}
+.link-inline:hover {
+  color: var(--indigo-oscuro);
 }

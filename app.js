@@ -1,5 +1,7 @@
 /* ============================================================
-   PHILOTOPIC — lógica con Supabase Auth y persistencia
+   PHILOTOPIC — lógica de la aplicación conectada a Supabase
+   Las historias se publican ÚNICAMENTE desde el panel de Supabase.
+   Los visitantes leen, votan y comentan. La sesión usa Supabase Auth.
    ============================================================ */
 
 // 1. CONFIGURACIÓN Y CONEXIÓN CON SUPABASE
@@ -8,6 +10,13 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+/* ------------------------------------------------------------
+   A. DATOS BASE
+   Las categorías se usan para los filtros del feed.
+   Las historias semilla solo se insertan si la tabla está vacía:
+   si ya publicas tú desde el panel, puedes borrar HISTORIAS_SEMILLA
+   y sembrarBaseDeDatos() sin tocar nada más.
+   ------------------------------------------------------------ */
 const CATEGORIAS = ['Dilemas morales','Relaciones','Trabajo','Familia','Sociedad','Tecnología'];
 
 const HISTORIAS_SEMILLA = [
@@ -124,18 +133,23 @@ function avisar(texto){
   temporizadorAviso = setTimeout(() => el.dataset.visible = 'no', 2600);
 }
 
+// Iconos de ojo (abierto / tachado) para los campos de contraseña
+const ICONO_OJO_ABIERTO = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const ICONO_OJO_CERRADO = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M6.61 6.61A18.5 18.5 0 0 0 1 12s4 8 11 8a9.26 9.26 0 0 0 5.39-1.61"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
 /* ------------------------------------------------------------
-   C. ESTADO DE LA APLICACIÓN
+   C. ESTADO Y COMUNICACIÓN CON SUPABASE
    ------------------------------------------------------------ */
 const estado = {
-  usuario: null,        // Nombre de usuario público
-  userAuth: null,       // Objeto de Supabase Auth
+  usuario: null,         // nombre visible (username o parte del correo)
+  session: null,         // sesión activa de Supabase Auth
+  userId: null,          // id del usuario autenticado
+  modoAuth: 'entrar',    // 'entrar' | 'registro' — pestaña activa del modal
   historias: [],
   votos: JSON.parse(localStorage.getItem('philotopic:votos') || '{}'),
   votosCom: JSON.parse(localStorage.getItem('philotopic:votosCom') || '{}'),
   reportes: JSON.parse(localStorage.getItem('philotopic:reportes') || '[]'),
-  orden: 'tendencias', categoria: 'todas', busqueda: '', ordenCom: 'relevancia', actual: null,
-  modoModal: 'entrar'   // 'entrar' o 'registro'
+  orden: 'tendencias', categoria: 'todas', busqueda: '', ordenCom: 'relevancia', actual: null
 };
 
 function guardarLocal(){
@@ -144,7 +158,7 @@ function guardarLocal(){
   localStorage.setItem('philotopic:reportes', JSON.stringify(estado.reportes));
 }
 
-// Cargar historias desde Supabase
+// Cargar historias, opciones y comentarios desde Supabase
 async function cargarDatosSupabase(){
   try {
     const { data: historias, error: errH } = await db
@@ -158,11 +172,13 @@ async function cargarDatosSupabase(){
 
     if(errH) throw errH;
 
+    // Si la base de datos está recién creada, creamos historias semilla
     if(!historias || historias.length === 0){
       await sembrarBaseDeDatos();
       return cargarDatosSupabase();
     }
 
+    // Organizar comentarios en árbol anidado (padres e hijos)
     estado.historias = historias.map(h => {
       const todosComs = (h.comentarios || []).map(c => ({
         id: c.id,
@@ -196,11 +212,12 @@ async function cargarDatosSupabase(){
     });
 
   } catch(e) {
-    console.error('Error cargando datos:', e);
+    console.error('Error cargando datos de Supabase:', e);
     avisar('Error conectando con la base de datos.');
   }
 }
 
+// Inicializar datos de prueba en Supabase la primera vez
 async function sembrarBaseDeDatos(){
   for(const h of HISTORIAS_SEMILLA){
     await db.from('historias').insert({
@@ -225,7 +242,7 @@ async function sembrarBaseDeDatos(){
 
 const haVotado   = idH => Boolean(estado.votos[idH]);
 const miVoto     = idH => estado.votos[idH] || null;
-const estaLogado = () => Boolean(estado.userAuth && estado.usuario);
+const estaLogado = () => Boolean(estado.session);
 
 /* ------------------------------------------------------------
    D. PORTADA: destacado, filtros y feed
@@ -482,7 +499,7 @@ function pintarEditor(h){
     <label for="texto-respuesta" class="solo-lectores">Tu respuesta</label>
     <textarea id="texto-respuesta" placeholder="${estaLogado()
       ? 'Explica qué harías tú y qué te hace dudar…'
-      : 'Inicia sesión para argumentar en el debate.'}"></textarea>
+      : 'Necesitas iniciar sesión para responder.'}"></textarea>
     <div class="editor__pie">
       ${selector || '<span class="meta">Publicas como <b style="color:var(--carbon)">' + esc(estado.usuario || 'invitado') + '</b></span>'}
       <button class="btn btn--principal" id="btn-publicar-respuesta">Publicar respuesta</button>
@@ -572,6 +589,7 @@ async function votar(idHistoria, idOpcion){
   const o = h && h.opciones.find(x => x.id === idOpcion);
   if(!o) return;
 
+  // Actualización optimista local
   o.votos = (o.votos || 0) + 1;
   estado.votos[idHistoria] = idOpcion;
   guardarLocal();
@@ -580,10 +598,11 @@ async function votar(idHistoria, idOpcion){
   pintarLateralDebate(h);
   avisar('Voto registrado.');
 
+  // Guardar en Supabase
   try {
     await db.from('opciones').update({ votos: o.votos }).match({ historia_id: idHistoria, id: idOpcion });
   } catch(e){
-    console.error('Error guardando voto:', e);
+    console.error('Error guardando voto en base de datos:', e);
   }
 }
 
@@ -611,7 +630,7 @@ async function votarComentario(idCom, dir){
 
 async function publicarRespuesta(texto, idPadre){
   if(!estaLogado()){ abrirSesion('entrar'); avisar('Inicia sesión para responder.'); return false; }
-  if(!texto.trim()){ avisar('Escribe tu respuesta antes de publicar.'); return false; }
+  if(!texto.trim()){ avisar('Escribe tu respuesta.'); return false; }
   const h = estado.historias.find(x => x.id === estado.actual);
   const nuevo = {
     id: idNuevo('c'),
@@ -626,6 +645,7 @@ async function publicarRespuesta(texto, idPadre){
     respuestas: []
   };
 
+  // Local
   estado.votosCom[nuevo.id] = 1;
   guardarLocal();
   if(idPadre){
@@ -639,6 +659,7 @@ async function publicarRespuesta(texto, idPadre){
   pintarLateralDebate(h);
   avisar('Respuesta publicada.');
 
+  // Guardar en Supabase
   try {
     await db.from('comentarios').insert({
       id: nuevo.id,
@@ -651,7 +672,7 @@ async function publicarRespuesta(texto, idPadre){
       abajo: 0
     });
   } catch(e){
-    console.error('Error publicando comentario:', e);
+    console.error('Error publicando comentario en base de datos:', e);
   }
   return true;
 }
@@ -678,14 +699,14 @@ function compartir(id){
 }
 
 /* ------------------------------------------------------------
-   F. AUTENTICACIÓN REAL (SUPABASE AUTH)
+   F. AUTENTICACIÓN (Supabase Auth)
    ------------------------------------------------------------ */
 let veloActivo = null;
 function abrirModal(sel){
   veloActivo = $(sel);
   veloActivo.hidden = false;
   document.body.style.overflow = 'hidden';
-  const primero = veloActivo.querySelector('input:not([hidden]),select');
+  const primero = veloActivo.querySelector('input,textarea,select');
   if(primero) setTimeout(() => primero.focus(), 40);
 }
 function cerrarModal(){
@@ -695,158 +716,215 @@ function cerrarModal(){
   veloActivo = null;
 }
 
-function cambiarModoAuth(modo){
-  estado.modoModal = modo;
-  const esRegistro = modo === 'registro';
-  
-  $('#titulo-sesion').textContent = esRegistro ? 'Crea tu cuenta' : 'Entra en Philotopic';
-  $('#desc-sesion').textContent = esRegistro 
-    ? 'Elige tu nombre de usuario para votar y comentar con identidad propia.'
-    : 'Vota en dilemas abiertos y comparte tu perspectiva moral.';
-    
-  $('#s-submit').textContent = esRegistro ? 'Crear cuenta' : 'Iniciar sesión';
-  $('#campo-usuario').hidden = !esRegistro;
-  
-  $('#tab-login').setAttribute('aria-selected', !esRegistro);
-  $('#tab-registro').setAttribute('aria-selected', esRegistro);
-
-  const switchText = $('#auth-switch-text');
-  if(switchText){
-    switchText.innerHTML = esRegistro 
-      ? `¿Ya tienes cuenta? <button type="button" class="link-inline" id="btn-switch-modo">Inicia sesión</button>`
-      : `¿No tienes cuenta? <button type="button" class="link-inline" id="btn-switch-modo">Regístrate</button>`;
-    $('#btn-switch-modo').addEventListener('click', () => cambiarModoAuth(esRegistro ? 'entrar' : 'registro'));
-  }
-  
+// --- Mensajes de error dentro del modal ---
+function mostrarErrorAuth(texto){
+  const el = $('#s-error');
+  el.textContent = texto;
+  el.hidden = false;
+}
+function ocultarErrorAuth(){
   $('#s-error').hidden = true;
 }
 
-function alternarVerContrasena(){
-  const inputPass = $('#s-password');
-  const btn = $('#btn-toggle-pass');
-  if(!inputPass || !btn) return;
-
-  const esPassword = inputPass.type === 'password';
-  inputPass.type = esPassword ? 'text' : 'password';
-
-  // Cambiar icono SVG (ojo abierto vs ojo tachado)
-  btn.innerHTML = esPassword 
-    ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-         <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
-         <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
-         <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
-         <line x1="2" y1="2" x2="22" y2="22"/>
-       </svg>`
-    : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-         <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-         <circle cx="12" cy="12" r="3"/>
-       </svg>`;
-       
-  btn.setAttribute('aria-label', esPassword ? 'Ocultar contraseña' : 'Mostrar contraseña');
+// --- Estado de "cargando" en el botón de envío ---
+function ponerCargando(cargando){
+  const btn = $('#s-submit');
+  if(cargando){
+    btn.dataset.textoOriginal = btn.textContent;
+    btn.textContent = 'Un momento…';
+    btn.disabled = true;
+  }else{
+    btn.textContent = btn.dataset.textoOriginal || btn.textContent;
+    btn.disabled = false;
+  }
 }
 
-function abrirSesion(modo = 'entrar'){
-  cambiarModoAuth(modo);
+// --- Mostrar / ocultar contraseña (aplica a #s-password y #s-password-confirmar) ---
+function alternarVisibilidadPassword(btn){
+  const idCampo = btn.dataset.alternarPassword;
+  const input = document.getElementById(idCampo);
+  if(!input) return;
+  const vaAMostrar = input.type === 'password';
+  input.type = vaAMostrar ? 'text' : 'password';
+  btn.innerHTML = vaAMostrar ? ICONO_OJO_CERRADO : ICONO_OJO_ABIERTO;
+  btn.setAttribute('aria-pressed', String(vaAMostrar));
+  btn.setAttribute('aria-label', vaAMostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
+}
+function reiniciarVisibilidadPassword(idCampo){
+  const input = document.getElementById(idCampo);
+  const btn = $(`[data-alternar-password="${idCampo}"]`);
+  if(input) input.type = 'password';
+  if(btn){
+    btn.innerHTML = ICONO_OJO_ABIERTO;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-label', 'Mostrar contraseña');
+  }
+}
+
+// --- Cambiar entre pestaña "entrar" y "registro" ---
+function cambiarModoAuth(modo){
+  estado.modoAuth = modo;
+  $$('#segmentado-auth [data-tab-auth]').forEach(b =>
+    b.setAttribute('aria-selected', b.dataset.tabAuth === modo));
+
+  $('#campo-username').hidden = modo !== 'registro';
+  $('#campo-confirmar').hidden = modo !== 'registro';
+  $('#s-password').autocomplete = modo === 'registro' ? 'new-password' : 'current-password';
+
+  $('#titulo-sesion').textContent = modo === 'registro' ? 'Crea tu cuenta' : 'Entra en el debate';
+  $('#auth-subtitulo').textContent = modo === 'registro'
+    ? 'Únete para votar y debatir con tu propio nombre.'
+    : 'Vota y participa en los debates con tu cuenta.';
+  $('#s-submit').textContent = modo === 'registro' ? 'Crear cuenta' : 'Entrar';
+  $('#auth-pie-texto').textContent = modo === 'registro' ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?';
+
+  const enlacePie = $('#btn-alternar-modo');
+  enlacePie.textContent = modo === 'registro' ? 'Inicia sesión' : 'Regístrate';
+  enlacePie.dataset.tabAuth = modo === 'registro' ? 'entrar' : 'registro';
+
+  ocultarErrorAuth();
+}
+
+function abrirSesion(modo){
+  cambiarModoAuth(modo || 'entrar');
+  $('#form-auth').reset();
+  reiniciarVisibilidadPassword('s-password');
+  reiniciarVisibilidadPassword('s-password-confirmar');
   abrirModal('#velo-sesion');
 }
 
-async function procesarAuth(){
-  const errorEl = $('#s-error');
-  errorEl.hidden = true;
+// --- Traducción de errores de Supabase Auth a mensajes en español ---
+function traducirErrorAuth(error){
+  const msg = (error && error.message) || '';
+  if(/invalid login credentials/i.test(msg)) return 'Correo o contraseña incorrectos.';
+  if(/already registered|user already exists/i.test(msg)) return 'Ya existe una cuenta con ese correo.';
+  if(/email not confirmed/i.test(msg)) return 'Confirma tu correo antes de iniciar sesión.';
+  if(/password should be at least/i.test(msg)) return 'La contraseña necesita al menos 6 caracteres.';
+  if(/unable to validate email address/i.test(msg)) return 'Ese correo no parece válido.';
+  if(/rate limit/i.test(msg)) return 'Demasiados intentos. Espera un momento y vuelve a intentarlo.';
+  return msg || 'Ha ocurrido un error. Inténtalo de nuevo.';
+}
 
-  const email = $('#s-email').value.trim();
-  const password = $('#s-password').value;
-  const username = $('#s-usuario').value.trim();
-
-  if(!email || !password){
-    errorEl.textContent = 'Introduce correo y contraseña.';
-    errorEl.hidden = false;
-    return;
+// --- Registro ---
+async function registrarUsuario({ username, email, password, confirmar }){
+  if(username.length < 3){
+    return mostrarErrorAuth('El nombre de usuario necesita al menos 3 caracteres.');
+  }
+  if(!email){
+    return mostrarErrorAuth('Escribe tu correo electrónico.');
+  }
+  if(password.length < 6){
+    return mostrarErrorAuth('La contraseña necesita al menos 6 caracteres.');
+  }
+  if(!confirmar){
+    return mostrarErrorAuth('Repite la contraseña para confirmarla.');
+  }
+  if(password !== confirmar){
+    return mostrarErrorAuth('Las contraseñas no coinciden.');
   }
 
-  if(estado.modoModal === 'registro'){
-    if(!username || username.length < 3){
-      errorEl.textContent = 'El nombre de usuario es obligatorio (mínimo 3 letras).';
-      errorEl.hidden = false;
-      return;
-    }
+  ponerCargando(true);
+  const { data, error } = await db.auth.signUp({
+    email,
+    password,
+    options: { data: { username } }
+  });
+  ponerCargando(false);
 
-    avisar('Creando cuenta…');
-    const { data, error } = await db.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { username: username.replace(/\s+/g,'_') }
-      }
-    });
+  if(error){
+    return mostrarErrorAuth(traducirErrorAuth(error));
+  }
 
-    if(error){
-      errorEl.textContent = error.message;
-      errorEl.hidden = false;
-      return;
-    }
-
-    if(data.user){
-      establecerSesion(data.user);
-      cerrarModal();
-      avisar('Cuenta creada con éxito. Bienvenido, ' + estado.usuario + '.');
-    }
-  } else {
-    avisar('Iniciando sesión…');
-    const { data, error } = await db.auth.signInWithPassword({ email, password });
-
-    if(error){
-      errorEl.textContent = 'Credenciales no válidas o usuario no encontrado.';
-      errorEl.hidden = false;
-      return;
-    }
-
-    if(data.user){
-      establecerSesion(data.user);
-      cerrarModal();
-      avisar('Sesión iniciada como ' + estado.usuario + '.');
-    }
+  if(data.session){
+    sincronizarSesion(data.session);
+    cerrarModal();
+    avisar('Bienvenido, ' + username + '.');
+  }else{
+    // El proyecto de Supabase requiere confirmar el correo antes de crear sesión
+    cerrarModal();
+    avisar('Cuenta creada. Revisa tu correo para confirmarla.');
   }
 }
 
-async function loginConGoogle(){
+// --- Inicio de sesión con correo y contraseña ---
+async function iniciarSesionUsuario({ email, password }){
+  if(!email || !password){
+    return mostrarErrorAuth('Escribe tu correo y tu contraseña.');
+  }
+
+  ponerCargando(true);
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
+  ponerCargando(false);
+
+  if(error){
+    return mostrarErrorAuth(traducirErrorAuth(error));
+  }
+
+  sincronizarSesion(data.session);
+  cerrarModal();
+  avisar('Hola de nuevo.');
+}
+
+// --- Inicio de sesión con Google ---
+async function continuarConGoogle(){
+  ocultarErrorAuth();
   const { error } = await db.auth.signInWithOAuth({
     provider: 'google',
-    options: {
-      redirectTo: window.location.origin + window.location.pathname
-    }
+    options: { redirectTo: window.location.origin + window.location.pathname }
   });
-  if(error) avisar('Error conectando con Google: ' + error.message);
+  if(error){
+    mostrarErrorAuth(traducirErrorAuth(error));
+  }
+  // Si no hay error, el navegador redirige a Google; onAuthStateChange
+  // se encargará de sincronizar la sesión al volver.
 }
 
-function establecerSesion(user){
-  estado.userAuth = user;
-  estado.usuario = (user.user_metadata && user.user_metadata.username) 
-    || (user.email ? user.email.split('@')[0] : 'usuario');
-  pintarPerfil();
-  if(estado.actual) pintarDebate();
-}
-
+// --- Cierre de sesión real ---
 async function salir(){
-  await db.auth.signOut();
-  estado.userAuth = null;
-  estado.usuario = null;
-  pintarPerfil();
-  avisar('Has cerrado sesión.');
+  const { error } = await db.auth.signOut();
+  if(error){
+    avisar('No se pudo cerrar la sesión.');
+    return;
+  }
+  sincronizarSesion(null);
+  avisar('Sesión cerrada.');
   if(estado.actual) pintarDebate();
+}
+
+// --- Sincroniza el estado local con la sesión de Supabase Auth ---
+function sincronizarSesion(session){
+  estado.session = session;
+
+  if(session && session.user){
+    const meta = session.user.user_metadata || {};
+    estado.usuario = meta.username
+      || (session.user.email ? session.user.email.split('@')[0] : 'usuario');
+    estado.userId = session.user.id;
+  }else{
+    estado.usuario = null;
+    estado.userId = null;
+  }
+
+  pintarPerfil();
+
+  // Si hay un debate abierto, refrescamos el editor para que muestre
+  // "Publicas como X" o el aviso de iniciar sesión, según corresponda.
+  if(estado.actual && estado.historias.length){
+    const h = estado.historias.find(x => x.id === estado.actual);
+    if(h){ pintarEditor(h); pintarLateralDebate(h); }
+  }
 }
 
 function pintarPerfil(){
   const invitado = $('#zona-invitado'), perfil = $('#zona-perfil');
   if(estaLogado()){
-    invitado.hidden = true;
-    invitado.style.display = 'none';
+    invitado.hidden = true; invitado.style.display = 'none';
     perfil.hidden = false;
     perfil.textContent = estado.usuario.slice(0,2).toUpperCase();
-    perfil.setAttribute('aria-label', 'Perfil de ' + estado.usuario + ' (clic para salir)');
+    perfil.setAttribute('aria-label', 'Cerrar sesión de ' + estado.usuario);
+    perfil.title = 'Cerrar sesión';
   }else{
-    invitado.hidden = false;
-    invitado.style.display = 'flex';
+    invitado.hidden = false; invitado.style.display = 'flex';
     perfil.hidden = true;
   }
 }
@@ -869,7 +947,7 @@ document.addEventListener('click', ev => {
 
   const rp = el('[data-responder]');
   if(rp){
-    if(!estaLogado()){ abrirSesion('entrar'); avisar('Entra para responder.'); return; }
+    if(!estaLogado()){ abrirSesion('entrar'); avisar('Inicia sesión para responder.'); return; }
     const caja = $(`[data-caja="${rp.dataset.responder}"]`);
     caja.hidden = !caja.hidden;
     if(!caja.hidden) caja.querySelector('textarea').focus();
@@ -914,7 +992,16 @@ document.addEventListener('click', ev => {
   const fmt = el('[data-formato]');
   if(fmt){ aplicarFormato(fmt.dataset.formato); return; }
 
-  const ses = el('[data-abrir-sesion]'); if(ses){ abrirSesion(ses.dataset.abrirSesion); return; }
+  // --- Autenticación ---
+  const ses = el('[data-abrir-sesion]');
+  if(ses){ abrirSesion(ses.dataset.abrirSesion); return; }
+
+  const tabAuth = el('[data-tab-auth]');
+  if(tabAuth){ cambiarModoAuth(tabAuth.dataset.tabAuth); return; }
+
+  const ojo = el('[data-alternar-password]');
+  if(ojo){ alternarVisibilidadPassword(ojo); return; }
+
   if(el('[data-cerrar]')){ cerrarModal(); return; }
   if(t.classList && t.classList.contains('velo')){ cerrarModal(); return; }
 });
@@ -942,6 +1029,25 @@ document.addEventListener('click', async ev => {
   }
 });
 
+// --- Envío del formulario de autenticación ---
+$('#form-auth').addEventListener('submit', async e => {
+  e.preventDefault();
+  ocultarErrorAuth();
+
+  const email = $('#s-email').value.trim();
+  const password = $('#s-password').value;
+
+  if(estado.modoAuth === 'registro'){
+    const username = $('#s-usuario').value.trim();
+    const confirmar = $('#s-password-confirmar').value;
+    await registrarUsuario({ username, email, password, confirmar });
+  }else{
+    await iniciarSesionUsuario({ email, password });
+  }
+});
+
+$('#btn-google').addEventListener('click', continuarConGoogle);
+
 $('#form-buscar').addEventListener('submit', e => e.preventDefault());
 $('#buscar').addEventListener('input', e => {
   estado.busqueda = e.target.value;
@@ -963,39 +1069,24 @@ $('#zona-perfil').addEventListener('click', salir);
 $('#ir-inicio').addEventListener('click', e => { e.preventDefault(); volverAlFeed(); });
 $('#btn-volver').addEventListener('click', e => { e.preventDefault(); volverAlFeed(); });
 
-// Eventos del modal de autenticación
-$('#tab-login').addEventListener('click', () => cambiarModoAuth('entrar'));
-$('#tab-registro').addEventListener('click', () => cambiarModoAuth('registro'));
-$('#s-submit').addEventListener('click', procesarAuth);
-$('#btn-google').addEventListener('click', loginConGoogle);
-$('#s-password').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
-
 document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarModal(); });
 
-// Inicialización de la sesión y datos
+// Inicialización de la aplicación
 (async function iniciar(){
-  // 1. Verificar si hay un usuario logueado en Supabase
-  const { data: { session } } = await db.auth.getSession();
-  if(session && session.user){
-    establecerSesion(session.user);
-  } else {
-    pintarPerfil();
-  }
-
-  // 2. Escuchar cambios de estado de autenticación (ej: redirección de Google OAuth)
-  db.auth.onAuthStateChange((event, session) => {
-    if(session && session.user){
-      establecerSesion(session.user);
-    } else {
-      estado.userAuth = null;
-      estado.usuario = null;
-      pintarPerfil();
-    }
+  // Escucha cambios de sesión (login, logout, retorno de OAuth, refresco de token…)
+  db.auth.onAuthStateChange((_evento, session) => {
+    sincronizarSesion(session);
   });
 
-  // 3. Cargar debates
+  pintarPerfil();
   avisar('Cargando debates desde la nube…');
-  await cargarDatosSupabase();
+
+  const [resSesion] = await Promise.all([
+    db.auth.getSession(),
+    cargarDatosSupabase()
+  ]);
+  sincronizarSesion(resSesion.data.session);
+
   pintarCategorias();
   pintarDestacado();
   pintarFeed();

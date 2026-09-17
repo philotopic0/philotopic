@@ -173,47 +173,62 @@ function guardarLocal(){
   localStorage.setItem('philotopic:votosCom', JSON.stringify(estado.votosCom));
   localStorage.setItem('philotopic:reportes', JSON.stringify(estado.reportes));
 }
-
-async function cargarDatosSupabase(){
+/* --- CARGA INICIAL DE DATOS --- */
+async function cargarDatosSupabase() {
   try {
-    const { data: historias, error: errH } = await db.from('historias').select(`
+    const { data: historias, error: errH } = await db
+      .from('historias')
+      .select(`
         id, categoria, autor, titulo, cuerpo, pregunta, destacada, created_at,
-        opciones ( id, texto, votos ), comentarios ( id, padre_id, autor, texto, voto_opcion, arriba, abajo, created_at )
-      `).order('created_at', { ascending: false });
+        opciones ( id, texto, votos ), 
+        comentarios ( id, padre_id, autor, texto, voto_opcion, arriba, abajo, created_at )
+      `)
+      .order('created_at', { ascending: false });
 
-    if(errH) throw errH;
-    if(!historias || historias.length === 0){ await sembrarBaseDeDatos(); return cargarDatosSupabase(); }
+    if (errH) throw errH;
+
+    if (!historias || historias.length === 0) { 
+      await sembrarBaseDeDatos(); 
+      return cargarDatosSupabase(); 
+    }
 
     estado.historias = historias.map(h => {
-      const todosComs = (h.comentarios || []).map(c => ({ id: c.id, padre_id: c.padre_id, autor: c.autor, texto: c.texto, voto: c.voto_opcion, arriba: c.arriba, abajo: c.abajo, created_at: c.created_at, respuestas: [] }));
-      const mapa = {}; todosComs.forEach(c => mapa[c.id] = c);
+      const todosComs = (h.comentarios || []).map(c => ({ 
+        id: c.id, 
+        padre_id: c.padre_id, 
+        autor: c.autor, 
+        texto: c.texto, 
+        voto: c.voto_opcion, 
+        arriba: c.arriba, 
+        abajo: c.abajo, 
+        created_at: c.created_at, 
+        respuestas: [] 
+      }));
+
+      const mapa = {}; 
+      todosComs.forEach(c => mapa[c.id] = c);
+      
       const raiz = [];
-      todosComs.forEach(c => { if(c.padre_id && mapa[c.padre_id]){ mapa[c.padre_id].respuestas.push(c); } else { raiz.push(c); } });
-      return { ...h, opciones: (h.opciones || []).sort((a,b) => a.id.localeCompare(b.id)), comentarios: raiz };
-    });
-async function cargarDatosSupabase(){
-  try {
-    const { data: historias, error: errH } = await db.from('historias').select(`
-        id, categoria, autor, titulo, cuerpo, pregunta, destacada, created_at,
-        opciones ( id, texto, votos ), comentarios ( id, padre_id, autor, texto, voto_opcion, arriba, abajo, created_at )
-      `).order('created_at', { ascending: false });
+      todosComs.forEach(c => { 
+        if (c.padre_id && mapa[c.padre_id]) { 
+          mapa[c.padre_id].respuestas.push(c); 
+        } else { 
+          raiz.push(c); 
+        } 
+      });
 
-    if(errH) throw errH;
-    if(!historias || historias.length === 0){ await sembrarBaseDeDatos(); return cargarDatosSupabase(); }
-
-    estado.historias = historias.map(h => {
-      const todosComs = (h.comentarios || []).map(c => ({ id: c.id, padre_id: c.padre_id, autor: c.autor, texto: c.texto, voto: c.voto_opcion, arriba: c.arriba, abajo: c.abajo, created_at: c.created_at, respuestas: [] }));
-      const mapa = {}; todosComs.forEach(c => mapa[c.id] = c);
-      const raiz = [];
-      todosComs.forEach(c => { if(c.padre_id && mapa[c.padre_id]){ mapa[c.padre_id].respuestas.push(c); } else { raiz.push(c); } });
-      return { ...h, opciones: (h.opciones || []).sort((a,b) => a.id.localeCompare(b.id)), comentarios: raiz };
+      return { 
+        ...h, 
+        opciones: (h.opciones || []).sort((a, b) => a.id.localeCompare(b.id)), 
+        comentarios: raiz 
+      };
     });
 
-    // Activar suscripción Realtime tras estructurar los datos
+    pintarEncuestas();
     suscribirRealtime();
 
-  } catch(e) { 
-    console.error('Error:', e); 
+  } catch (e) { 
+    console.error('Error cargando datos:', e); 
     avisar('Error conectando con la base de datos.'); 
   }
 }

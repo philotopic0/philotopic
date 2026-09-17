@@ -394,6 +394,38 @@ function pintarLateralDebate(h){
   const otros = estado.historias.filter(x => x.id !== h.id).slice(0,4);
   $('#relacionados').innerHTML = otros.map(o => `<li><button data-ir="${o.id}">${esc(o.titulo.length>52 ? o.titulo.slice(0,52)+'…' : o.titulo)}<span>${contarComentarios(o.comentarios)}</span></button></li>`).join('');
 }
+/* --- VISTA DE PERFIL --- */
+async function abrirPerfil(){
+  if(!estaLogado()){
+    abrirModal();
+    return;
+  }
+  $('#vista-feed').hidden = true;
+  $('#vista-debate').hidden = true;
+  if($('#vista-admin')) $('#vista-admin').hidden = true;
+  $('#vista-perfil').hidden = false;
+  window.scrollTo({ top: 0 });
+
+  const alias = estado.usuario || 'Usuario';
+  $('#perfil-nombre').textContent = alias;
+  $('#perfil-email').textContent = estado.userAuth?.email || '';
+  $('#perfil-avatar-grande').textContent = alias.slice(0, 2).toUpperCase();
+
+  // Calcular estadísticas locales
+  const votosTotales = Object.keys(estado.votosLocales || {}).length;
+  $('#perfil-total-votos').textContent = votosTotales;
+
+  // Contar comentarios del usuario en la base de datos
+  try {
+    const { count, error } = await db
+      .from('comentarios')
+      .select('*', { count: 'exact', head: true })
+      .eq('autor', alias);
+    $('#perfil-total-comentarios').textContent = error ? 0 : (count || 0);
+  } catch(e) {
+    $('#perfil-total-comentarios').textContent = 0;
+  }
+}
 /* --- PANEL DE ADMINISTRACIÓN --- */
 function abrirAdmin(){
   if(!estaLogado() || !estado.userAuth || estado.userAuth.email !== EMAIL_ADMIN){
@@ -681,11 +713,13 @@ $('#form-buscar').addEventListener('submit', e => e.preventDefault());
 $('#buscar').addEventListener('input', e => { estado.busqueda = e.target.value; if(estado.actual) volverAlFeed(); else pintarFeed(); });
 $('#tema-cabecera').addEventListener('change', e => { estado.categoria = e.target.value; $$('#chips-categoria .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.categoria === estado.categoria)); if(estado.actual) volverAlFeed(); else pintarFeed(); });
 $('#btn-debate-dia').addEventListener('click', () => { const d = debateDelDia(); if(d) abrirDebate(d.id); });
-$('#zona-perfil').addEventListener('click', salir);
+$('#zona-perfil').addEventListener('click', () => { location.hash = 'perfil'; abrirPerfil(); });
 $('#ir-inicio').addEventListener('click', e => { e.preventDefault(); volverAlFeed(); }); $('#btn-volver').addEventListener('click', e => { e.preventDefault(); volverAlFeed(); });
 document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarModal(); });
 $('#form-crear-historia').addEventListener('submit', publicarHistoriaAdmin);
 $('#btn-volver-admin').addEventListener('click', e => { e.preventDefault(); location.hash = ''; volverAlFeed(); });
+$('#btn-volver-perfil').addEventListener('click', e => { e.preventDefault(); location.hash = ''; volverAlFeed(); });
+$('#btn-cerrar-sesion-perfil').addEventListener('click', () => { salir(); volverAlFeed(); });
 
 // Inicialización
 (async function iniciar(){
@@ -697,8 +731,10 @@ $('#btn-volver-admin').addEventListener('click', e => { e.preventDefault(); loca
   pintarCategorias(); pintarDestacado(); pintarFeed();
   const destino = location.hash.slice(1);
   if(destino === 'admin'){
-    abrirAdmin();
-  } else if(destino && estado.historias.some(h => h.id === destino)){
-    abrirDebate(destino);
-  }
+  abrirAdmin();
+} else if(destino === 'perfil'){
+  abrirPerfil();
+} else if(destino && estado.historias.some(h => h.id === destino)){
+  abrirDebate(destino);
+}
 })();

@@ -163,10 +163,50 @@
       </aside>
     </div>
   </div>
+  <!-- ============================================================
+       VISTA PERFIL DE USUARIO
+       ============================================================ -->
+  <div id="vista-perfil" class="envoltura" hidden>
+    <a href="#" class="volver" id="btn-volver-perfil">
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Volver al feed
+    </a>
+
+    <div class="hoja">
+      <div style="display:flex;align-items:center;gap:18px;margin-bottom:24px;">
+        <div id="perfil-avatar-grande" style="width:64px;height:64px;border-radius:50%;background:var(--indigo);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;">
+          U
+        </div>
+        <div>
+          <h1 id="perfil-nombre" style="margin:0 0 4px 0;font-size:1.5rem;">Usuario</h1>
+          <p id="perfil-email" class="meta" style="margin:0;">usuario@ejemplo.com</p>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;margin-bottom:28px;">
+        <div style="background:var(--blanco);border:1px solid var(--borde);padding:14px;border-radius:var(--radio-tarjeta);text-align:center;">
+          <div id="perfil-total-votos" style="font-size:1.4rem;font-weight:700;color:var(--indigo);">0</div>
+          <div class="meta" style="font-size:0.8rem;margin-top:4px;">Dilemas votados</div>
+        </div>
+        <div style="background:var(--blanco);border:1px solid var(--borde);padding:14px;border-radius:var(--radio-tarjeta);text-align:center;">
+          <div id="perfil-total-comentarios" style="font-size:1.4rem;font-weight:700;color:var(--indigo);">0</div>
+          <div class="meta" style="font-size:0.8rem;margin-top:4px;">Comentarios</div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--borde);padding-top:20px;display:flex;justify-content:flex-end;">
+        <button id="btn-cerrar-sesion-perfil" class="btn" style="border:1px solid var(--alerta);color:var(--alerta);background:transparent;">
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  </div>
 <!-- ============================================================
        VISTA 3 — PANEL DE ADMINISTRACIÓN (SOLO ADMIN)
        ============================================================ -->
-  <div id="vista-admin" class="envoltura" hidden>
+       <div id="vista-admin" class="envoltura" hidden>
     <a href="#" class="volver" id="btn-volver-admin">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
         <path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>

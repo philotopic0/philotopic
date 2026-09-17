@@ -9,6 +9,49 @@ const SUPABASE_URL = 'https://spbcvfywrmyvlzsynoyr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwYmN2Znl3cm15dmx6c3lub3lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NDU3MTAsImV4cCI6MjEwNTEyMTcxMH0.125_gdrrwOckwT8N2XhMNAAn7153PeKgJyGzA-CpBDs';
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+/* --- REALTIME --- */
+function suscribirRealtime() {
+  db.channel('cambios-vivo')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'opciones' },
+      (payload) => {
+        const opcionActualizada = payload.new;
+        estado.historias.forEach(h => {
+          const opt = h.opciones?.find(o => o.id === opcionActualizada.id);
+          if (opt) opt.votos = opcionActualizada.votos;
+        });
+
+        if (!$('#vista-feed').hidden) pintarEncuestas();
+        if (!$('#vista-debate').hidden && estado.actual) {
+          const hActual = estado.historias.find(h => h.id === estado.actual);
+          if (hActual) {
+            pintarEncuesta(hActual);
+            pintarEditor(hActual);
+            pintarLateralDebate(hActual);
+          }
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'comentarios' },
+      (payload) => {
+        const nuevoComentario = payload.new;
+        const historia = estado.historias.find(h => h.id === nuevoComentario.historia_id);
+        if (historia) {
+          if (!historia.comentarios) historia.comentarios = [];
+          if (!historia.comentarios.some(c => c.id === nuevoComentario.id)) {
+            historia.comentarios.push(nuevoComentario);
+            if (!$('#vista-debate').hidden && estado.actual === historia.id) {
+              pintarEditor(historia);
+            }
+          }
+        }
+      }
+    )
+    .subscribe();
+}
 const EMAIL_ADMIN = 'philotopic0@gmail.com';
 
 /* ------------------------------------------------------------
@@ -148,7 +191,31 @@ async function cargarDatosSupabase(){
       todosComs.forEach(c => { if(c.padre_id && mapa[c.padre_id]){ mapa[c.padre_id].respuestas.push(c); } else { raiz.push(c); } });
       return { ...h, opciones: (h.opciones || []).sort((a,b) => a.id.localeCompare(b.id)), comentarios: raiz };
     });
-  } catch(e) { console.error('Error:', e); avisar('Error conectando con la base de datos.'); }
+async function cargarDatosSupabase(){
+  try {
+    const { data: historias, error: errH } = await db.from('historias').select(`
+        id, categoria, autor, titulo, cuerpo, pregunta, destacada, created_at,
+        opciones ( id, texto, votos ), comentarios ( id, padre_id, autor, texto, voto_opcion, arriba, abajo, created_at )
+      `).order('created_at', { ascending: false });
+
+    if(errH) throw errH;
+    if(!historias || historias.length === 0){ await sembrarBaseDeDatos(); return cargarDatosSupabase(); }
+
+    estado.historias = historias.map(h => {
+      const todosComs = (h.comentarios || []).map(c => ({ id: c.id, padre_id: c.padre_id, autor: c.autor, texto: c.texto, voto: c.voto_opcion, arriba: c.arriba, abajo: c.abajo, created_at: c.created_at, respuestas: [] }));
+      const mapa = {}; todosComs.forEach(c => mapa[c.id] = c);
+      const raiz = [];
+      todosComs.forEach(c => { if(c.padre_id && mapa[c.padre_id]){ mapa[c.padre_id].respuestas.push(c); } else { raiz.push(c); } });
+      return { ...h, opciones: (h.opciones || []).sort((a,b) => a.id.localeCompare(b.id)), comentarios: raiz };
+    });
+
+    // Activar suscripción Realtime tras estructurar los datos
+    suscribirRealtime();
+
+  } catch(e) { 
+    console.error('Error:', e); 
+    avisar('Error conectando con la base de datos.'); 
+  }
 }
 
 async function sembrarBaseDeDatos(){

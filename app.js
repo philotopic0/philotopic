@@ -393,7 +393,73 @@ function pintarLateralDebate(h){
   const otros = estado.historias.filter(x => x.id !== h.id).slice(0,4);
   $('#relacionados').innerHTML = otros.map(o => `<li><button data-ir="${o.id}">${esc(o.titulo.length>52 ? o.titulo.slice(0,52)+'…' : o.titulo)}<span>${contarComentarios(o.comentarios)}</span></button></li>`).join('');
 }
+/* --- PANEL DE ADMINISTRACIÓN --- */
+function abrirAdmin(){
+  if(!estaLogado() || !estado.userAuth || estado.userAuth.email !== EMAIL_ADMIN){
+    avisar('Acceso restringido al administrador.');
+    volverAlFeed();
+    return;
+  }
+  $('#vista-feed').hidden = true;
+  $('#vista-debate').hidden = true;
+  $('#vista-admin').hidden = false;
+  window.scrollTo({ top: 0 });
+}
 
+async function publicarHistoriaAdmin(e){
+  e.preventDefault();
+  const btn = $('#btn-submit-historia');
+  btn.disabled = true;
+  btn.textContent = 'Publicando en la nube…';
+
+  const titulo = $('#admin-titulo').value.trim();
+  const categoria = $('#admin-categoria').value;
+  const cuerpoTexto = $('#admin-cuerpo').value.trim();
+  const pregunta = $('#admin-pregunta').value.trim();
+  const destacada = $('#admin-destacada').checked;
+
+  const op1 = $('#admin-op1').value.trim();
+  const op2 = $('#admin-op2').value.trim();
+  const op3 = $('#admin-op3').value.trim();
+
+  const parrafos = cuerpoTexto.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+  const idHistoria = 'h_' + Date.now();
+
+  try {
+    const { error: errH } = await db.from('historias').insert({
+      id: idHistoria,
+      titulo,
+      categoria,
+      cuerpo: parrafos,
+      pregunta,
+      autor: estado.usuario || 'Admin',
+      destacada
+    });
+    if(errH) throw errH;
+
+    const opcionesAInsertar = [
+      { id: 'o1', historia_id: idHistoria, texto: op1, votos: 0 },
+      { id: 'o2', historia_id: idHistoria, texto: op2, votos: 0 }
+    ];
+    if(op3) opcionesAInsertar.push({ id: 'o3', historia_id: idHistoria, texto: op3, votos: 0 });
+
+    const { error: errO } = await db.from('opciones').insert(opcionesAInsertar);
+    if(errO) throw errO;
+
+    avisar('¡Historia publicada con éxito!');
+    $('#form-crear-historia').reset();
+
+    await cargarDatosSupabase();
+    location.hash = '';
+    volverAlFeed();
+  } catch(err) {
+    console.error('Error publicando historia:', err);
+    avisar('Error al guardar: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Publicar dilema ahora';
+  }
+}
 /* --- ACCIONES EN BASE DE DATOS --- */
 async function votar(idHistoria, idOpcion){
   if(haVotado(idHistoria)) return;
@@ -617,6 +683,8 @@ $('#btn-debate-dia').addEventListener('click', () => { const d = debateDelDia();
 $('#zona-perfil').addEventListener('click', salir);
 $('#ir-inicio').addEventListener('click', e => { e.preventDefault(); volverAlFeed(); }); $('#btn-volver').addEventListener('click', e => { e.preventDefault(); volverAlFeed(); });
 document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarModal(); });
+$('#form-crear-historia').addEventListener('submit', publicarHistoriaAdmin);
+$('#btn-volver-admin').addEventListener('click', e => { e.preventDefault(); location.hash = ''; volverAlFeed(); });
 
 // Inicialización
 (async function iniciar(){
@@ -626,5 +694,10 @@ document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarModal()
   const [resSesion] = await Promise.all([ db.auth.getSession(), cargarDatosSupabase() ]);
   establecerSesion(resSesion.data.session ? resSesion.data.session.user : null);
   pintarCategorias(); pintarDestacado(); pintarFeed();
-  const destino = location.hash.slice(1); if(destino && estado.historias.some(h => h.id === destino)) abrirDebate(destino);
+  const destino = location.hash.slice(1);
+  if(destino === 'admin'){
+    abrirAdmin();
+  } else if(destino && estado.historias.some(h => h.id === destino)){
+    abrirDebate(destino);
+  }
 })();

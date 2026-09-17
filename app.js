@@ -10,20 +10,29 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /* --- REALTIME --- */
+/* --- ESCUCHA EN TIEMPO REAL --- */
 function suscribirRealtime() {
-  db.channel('cambios-vivo')
+  db.removeAllChannels();
+
+  const canal = db.channel('cambios-vivo');
+
+  canal
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'opciones' },
       (payload) => {
+        console.log('⚡ Cambio en opciones recibido:', payload);
         const opcionActualizada = payload.new;
+
         estado.historias.forEach(h => {
-          const opt = h.opciones?.find(o => o.id === opcionActualizada.id);
-          if (opt) opt.votos = opcionActualizada.votos;
+          if (h.opciones) {
+            const opt = h.opciones.find(o => o.id === opcionActualizada.id);
+            if (opt) opt.votos = opcionActualizada.votos;
+          }
         });
 
-        if (!$('#vista-feed').hidden) pintarEncuestas();
-        if (!$('#vista-debate').hidden && estado.actual) {
+        pintarEncuestas();
+        if (estado.actual) {
           const hActual = estado.historias.find(h => h.id === estado.actual);
           if (hActual) {
             pintarEncuesta(hActual);
@@ -37,20 +46,24 @@ function suscribirRealtime() {
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'comentarios' },
       (payload) => {
+        console.log('⚡ Nuevo comentario recibido:', payload);
         const nuevoComentario = payload.new;
         const historia = estado.historias.find(h => h.id === nuevoComentario.historia_id);
         if (historia) {
           if (!historia.comentarios) historia.comentarios = [];
           if (!historia.comentarios.some(c => c.id === nuevoComentario.id)) {
             historia.comentarios.push(nuevoComentario);
-            if (!$('#vista-debate').hidden && estado.actual === historia.id) {
+            if (estado.actual === historia.id) {
               pintarEditor(historia);
             }
           }
         }
       }
     )
-    .subscribe();
+    .subscribe((status, err) => {
+      console.log('Estado de la suscripción Realtime:', status);
+      if (err) console.error('Error en suscripción:', err);
+    });
 }
 const EMAIL_ADMIN = 'philotopic0@gmail.com';
 

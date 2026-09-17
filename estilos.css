@@ -758,3 +758,93 @@ img{max-width:100%;}
 .link-inline:hover {
   color: var(--indigo-oscuro);
 }
+/* ============================================================
+   12. NOTIFICACIONES DESPLEGABLES
+   ============================================================ */
+.contenedor-notificaciones {
+  position: relative;
+  display: flex;
+}
+
+.panel-notificaciones {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  width: 320px;
+  background: #FFFFFF;
+  border: 1px solid var(--pizarra);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+  z-index: 100;
+  overflow: hidden;
+  animation: fade-in-panel 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fade-in-panel {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 440px) {
+  .panel-notificaciones {
+    position: fixed;
+    top: 60px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+  }
+}
+
+.panel-notificaciones__cabecera {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--pizarra-suave);
+  background: #F8FAFC;
+}
+
+.panel-notificaciones__cabecera h3 {
+  font-size: 0.95rem;
+  margin: 0;
+  color: var(--carbon);
+}
+
+.panel-notificaciones__lista {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.noti-item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--pizarra-suave);
+  text-decoration: none;
+  color: var(--plomo);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.noti-item:hover {
+  background: #F1F5F9;
+  text-decoration: none;
+}
+
+.noti-item--no-leida {
+  background: var(--indigo-velo);
+}
+
+.noti-item--no-leida:hover {
+  background: #E4E2FC;
+}
+
+.noti-item b {
+  color: var(--carbon);
+}
+
+.noti-vacio {
+  padding: 30px 20px;
+  text-align: center;
+  color: var(--plomo-claro);
+  font-size: 0.9rem;
+}

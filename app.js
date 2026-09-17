@@ -9,6 +9,7 @@ const SUPABASE_URL = 'https://spbcvfywrmyvlzsynoyr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwYmN2Znl3cm15dmx6c3lub3lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NDU3MTAsImV4cCI6MjEwNTEyMTcxMH0.125_gdrrwOckwT8N2XhMNAAn7153PeKgJyGzA-CpBDs';
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const EMAIL_ADMIN = 'philotopic0@gmail.com';
 
 /* ------------------------------------------------------------
    A. DATOS BASE

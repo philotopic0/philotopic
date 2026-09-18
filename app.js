@@ -353,20 +353,23 @@ function historiasVisibles() {
     res = res.filter(h => h.categoria === estado.categoria);
   }
 
-  // 2. Filtrado por búsqueda de texto en tiempo real
+  // 2. Filtrado por búsqueda de texto blindado
   if (estado.busqueda && estado.busqueda.trim()) {
     const q = estado.busqueda.toLowerCase().trim();
     res = res.filter(h => {
-      const titulo = (h.titulo || '').toLowerCase();
-      const cuerpo = (h.cuerpo || h.resumen || h.relato || '').toLowerCase();
-      const pregunta = (h.pregunta || '').toLowerCase();
-      const categoria = (h.categoria || '').toLowerCase();
+      // Convierte cualquier valor a string de forma segura (sea array, número u objeto)
+      const aTexto = val => Array.isArray(val) ? val.join(' ') : String(val || '');
+
+      const titulo = aTexto(h.titulo).toLowerCase();
+      const cuerpo = aTexto(h.cuerpo || h.resumen || h.relato).toLowerCase();
+      const pregunta = aTexto(h.pregunta).toLowerCase();
+      const categoria = aTexto(h.categoria).toLowerCase();
 
       return titulo.includes(q) || cuerpo.includes(q) || pregunta.includes(q) || categoria.includes(q);
     });
   }
 
-  // 3. Ordenación dinámica según la pestaña seleccionada
+  // 3. Ordenación según pestaña
   const criterio = estado.ordenActivo || estado.orden || 'tendencias';
 
   switch (criterio) {
@@ -378,11 +381,7 @@ function historiasVisibles() {
       });
 
     case 'debatidas':
-      return res.sort((a, b) => {
-        const comA = a.comentarios ? a.comentarios.length : 0;
-        const comB = b.comentarios ? b.comentarios.length : 0;
-        return comB - comA;
-      });
+      return res.sort((a, b) => (b.comentarios ? b.comentarios.length : 0) - (a.comentarios ? a.comentarios.length : 0));
 
     case 'nuevas':
       return res.sort((a, b) => String(b.id).localeCompare(String(a.id)));
@@ -400,7 +399,6 @@ function historiasVisibles() {
       });
   }
 }
-
 function pintarFeed(){
   const lista = historiasVisibles();
   const cont = $('#feed');

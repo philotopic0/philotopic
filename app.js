@@ -952,13 +952,45 @@ $('#s-submit').addEventListener('click', procesarAuth); $('#btn-google').addEven
 if($('#s-password-confirm')) $('#s-password-confirm').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
 
 // Búsqueda al teclear en tiempo real
-document.addEventListener('input', ev => {
-  if (ev.target && ev.target.id === 'buscar') {
-    estado.busqueda = ev.target.value;
-    if (estado.actual) volverAlFeed(); else pintarFeed();
-  }
-});
+// Conexión directa y global del buscador
+function enlazarBuscador() {
+  const input = document.getElementById('buscar');
+  const form = document.getElementById('form-buscar');
 
+  if (input) {
+    // Al escribir
+    input.addEventListener('input', (e) => {
+      estado.busqueda = e.target.value;
+      if (estado.actual) volverAlFeed();
+      else pintarFeed();
+    });
+
+    // Al presionar Enter
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        estado.busqueda = input.value;
+        if (estado.actual) volverAlFeed();
+        else pintarFeed();
+      }
+    });
+  }
+
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (input) {
+        estado.busqueda = input.value;
+        if (estado.actual) volverAlFeed();
+        else pintarFeed();
+      }
+    });
+  }
+}
+
+// Ejecutar el enlace inmediatamente y al cargar el DOM
+enlazarBuscador();
+document.addEventListener('DOMContentLoaded', enlazarBuscador);
 // Búsqueda directa al presionar Enter en el formulario
 document.addEventListener('submit', ev => {
   const form = ev.target && (ev.target.id === 'form-buscar' ? ev.target : ev.target.closest('#form-buscar'));

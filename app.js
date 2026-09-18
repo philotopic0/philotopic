@@ -953,7 +953,7 @@ $('#tab-login').addEventListener('click', () => cambiarModoAuth('entrar')); $('#
 $('#s-submit').addEventListener('click', procesarAuth); $('#btn-google').addEventListener('click', loginConGoogle); $$('.btn-toggle-password').forEach(btn => { btn.addEventListener('click', () => alternarVerContrasena(btn)); });$('#s-password').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
 if($('#s-password-confirm')) $('#s-password-confirm').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
 
-// Escucha global de búsqueda (infalible en tiempo real)
+// Búsqueda al teclear en tiempo real
 document.addEventListener('input', ev => {
   if (ev.target && ev.target.id === 'buscar') {
     estado.busqueda = ev.target.value;
@@ -961,10 +961,16 @@ document.addEventListener('input', ev => {
   }
 });
 
-// Prevenir recarga del formulario al pulsar Enter
+// Búsqueda directa al presionar Enter en el formulario
 document.addEventListener('submit', ev => {
-  if (ev.target && (ev.target.id === 'form-buscar' || ev.target.closest('#form-buscar'))) {
+  const form = ev.target && (ev.target.id === 'form-buscar' ? ev.target : ev.target.closest('#form-buscar'));
+  if (form) {
     ev.preventDefault();
+    const input = $('#buscar');
+    if (input) {
+      estado.busqueda = input.value;
+      if (estado.actual) volverAlFeed(); else pintarFeed();
+    }
   }
 });
 

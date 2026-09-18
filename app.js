@@ -589,12 +589,40 @@ async function publicarHistoriaAdmin(e){
   }
 }
 /* --- ACCIONES EN BASE DE DATOS --- */
+// Descarga los votos reales del usuario desde Supabase
+async function sincronizarVotosUsuario(userId){
+  if (!userId) return;
+  try {
+    const { data, error } = await db
+      .from('votos')
+      .select('historia_id, opcion_id')
+      .eq('user_id', userId);
+
+    if (!error && data && data.length > 0) {
+      if (!estado.votos) estado.votos = {};
+      data.forEach(v => {
+        estado.votos[v.historia_id] = v.opcion_id;
+      });
+      guardarLocal();
+      // Si el usuario está viendo un debate abierto, refrescar su vista
+      if (estado.actual) {
+        const hist = estado.historias.find(h => h.id === estado.actual);
+        if (hist) {
+          pintarEncuesta(hist);
+          pintarEditor(hist);
+        }
+      }
+    }
+  } catch(e) {
+    console.error('Error sincronizando votos de la nube:', e);
+  }
+}
 async function votar(idHistoria, idOpcion){
   if(haVotado(idHistoria)) return;
   const h = estado.historias.find(x => x.id === idHistoria); const o = h && h.opciones.find(x => x.id === idOpcion);
   if(!o) return; o.votos = (o.votos || 0) + 1; estado.votos[idHistoria] = idOpcion;
   guardarLocal(); pintarEncuesta(h); pintarEditor(h); pintarLateralDebate(h); avisar('Voto registrado.');
-  try { await db.rpc('registrar_voto', { p_opcion_id: idOpcion }); } catch(e){ console.error(e); }
+  try { await db.rpc('registrar_voto', { p_historia_id: idHistoria, p_opcion_id: idOpcion }); } catch(e){ console.error(e); }
 }
 
 async function votarComentario(idCom, dir){
@@ -725,6 +753,7 @@ function establecerSesion(user){
   if(user){
     estado.usuario = (user.user_metadata && user.user_metadata.username) || (user.email ? user.email.split('@')[0] : 'usuario');
     cargarNotificaciones();
+    sincronizarVotosUsuario(user.id);
   } else {
     estado.usuario = null;
     estado.notificaciones = [];

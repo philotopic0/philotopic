@@ -677,21 +677,22 @@ async function cargarHistoriasAdmin(){
 
 // Elimina una historia y sus registros asociados
 window.eliminarHistoriaAdmin = async function(idHistoria){
-  if(!confirm('¿Seguro que deseas eliminar este dilema por completo? Se borrarán sus opciones y comentarios.')) return;
+  if(!confirm('¿Seguro que deseas eliminar este dilema por completo?')) return;
   try {
     await db.from('comentarios').delete().eq('historia_id', idHistoria);
     await db.from('votos').delete().eq('historia_id', idHistoria);
     await db.from('opciones').delete().eq('historia_id', idHistoria);
+
     const { error } = await db.from('historias').delete().eq('id', idHistoria);
     if(error) throw error;
 
-    estado.historias = estado.historias.filter(h => h.id !== idHistoria);
+    estado.historias = estado.historias.filter(h => String(h.id) !== String(idHistoria));
     avisar('Dilema eliminado con éxito.');
     cargarHistoriasAdmin();
-    pintarFeed();
+    if (typeof pintarFeed === 'function') pintarFeed();
   } catch(e) {
     console.error('Error eliminando historia:', e);
-    avisar('Error al eliminar historia: ' + e.message);
+    avisar('Error al eliminar historia: ' + (e.message || e));
   }
 };
 /* --- ACCIONES EN BASE DE DATOS --- */

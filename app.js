@@ -353,13 +353,17 @@ function historiasVisibles() {
     res = res.filter(h => h.categoria === estado.categoria);
   }
 
-  // 2. Filtrado por búsqueda de texto
+  // 2. Filtrado por búsqueda de texto en tiempo real
   if (estado.busqueda && estado.busqueda.trim()) {
     const q = estado.busqueda.toLowerCase().trim();
-    res = res.filter(h =>
-      (h.titulo && h.titulo.toLowerCase().includes(q)) ||
-      (h.resumen && h.resumen.toLowerCase().includes(q))
-    );
+    res = res.filter(h => {
+      const titulo = (h.titulo || '').toLowerCase();
+      const cuerpo = (h.cuerpo || h.resumen || h.relato || '').toLowerCase();
+      const pregunta = (h.pregunta || '').toLowerCase();
+      const categoria = (h.categoria || '').toLowerCase();
+
+      return titulo.includes(q) || cuerpo.includes(q) || pregunta.includes(q) || categoria.includes(q);
+    });
   }
 
   // 3. Ordenación dinámica según la pestaña seleccionada
@@ -396,6 +400,7 @@ function historiasVisibles() {
       });
   }
 }
+
 function pintarFeed(){
   const lista = historiasVisibles();
   const cont = $('#feed');

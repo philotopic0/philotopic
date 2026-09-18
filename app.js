@@ -237,7 +237,7 @@ async function cargarDatosSupabase() {
       };
     });
 
-    pintarEncuestas();
+    pintarFeed();
     suscribirRealtime();
 
   } catch (e) { 
@@ -600,28 +600,32 @@ async function cargarComentariosAdmin(){
   try {
     const { data, error } = await db
       .from('comentarios')
-      .select('id, historia_id, autor, texto, creado_en')
-      .order('creado_en', { ascending: false })
-      .limit(20);
+      .select('*')
+      .limit(30);
 
     if(error) throw error;
     if(!data || data.length === 0){
-      contenedor.innerHTML = '<p class="meta">No hay comentarios recientes.</p>';
+      contenedor.innerHTML = '<p class="meta">No hay comentarios en la base de datos.</p>';
       return;
     }
 
     contenedor.innerHTML = '';
     data.forEach(c => {
+      const idCom = c.id;
+      const autor = c.autor || c.usuario || c.username || 'Anónimo';
+      const texto = c.texto || c.comentario || c.contenido || '';
+      const debate = c.historia_id || c.debate_id || '';
+
       const fila = document.createElement('div');
       fila.style.cssText = 'background:var(--fondo); border:1px solid var(--borde); border-radius:8px; padding:12px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px;';
       fila.innerHTML = `
         <div style="max-width: 80%;">
           <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 4px;">
-            ${c.autor || 'Anónimo'} <span class="meta" style="font-weight: 400; font-size: 0.75rem;">(Debate: ${c.historia_id})</span>
+            ${autor} ${debate ? `<span class="meta" style="font-weight: 400; font-size: 0.75rem;">(Ref: ${debate})</span>` : ''}
           </div>
-          <div style="font-size: 0.9rem; color: var(--texto); word-break: break-word;">${c.texto}</div>
+          <div style="font-size: 0.9rem; color: var(--texto); word-break: break-word;">${texto}</div>
         </div>
-        <button class="btn" style="background:#fee2e2; color:#b91c1c; border:none; padding:6px 10px; font-size:0.8rem; cursor:pointer;" onclick="eliminarComentarioAdmin('${c.id}')">
+        <button class="btn" style="background:#fee2e2; color:#b91c1c; border:none; padding:6px 10px; font-size:0.8rem; cursor:pointer;" onclick="eliminarComentarioAdmin('${idCom}')">
           Borrar
         </button>
       `;
@@ -629,7 +633,7 @@ async function cargarComentariosAdmin(){
     });
   } catch(e) {
     console.error('Error cargando comentarios para moderación:', e);
-    contenedor.innerHTML = '<p class="meta" style="color:var(--alerta)">Error al cargar comentarios.</p>';
+    contenedor.innerHTML = `<p class="meta" style="color:var(--alerta)">Error: ${e.message || 'No se pudieron cargar'}</p>`;
   }
 }
 

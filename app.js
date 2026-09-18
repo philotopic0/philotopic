@@ -949,13 +949,25 @@ document.addEventListener('click', async ev => {
   const publicado = await publicarRespuesta(ta ? ta.value : '', null);
   if(publicado && ta) ta.value = '';
 });
-
 $('#tab-login').addEventListener('click', () => cambiarModoAuth('entrar')); $('#tab-registro').addEventListener('click', () => cambiarModoAuth('registro'));
 $('#s-submit').addEventListener('click', procesarAuth); $('#btn-google').addEventListener('click', loginConGoogle); $$('.btn-toggle-password').forEach(btn => { btn.addEventListener('click', () => alternarVerContrasena(btn)); });$('#s-password').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
 if($('#s-password-confirm')) $('#s-password-confirm').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
 
-$('#form-buscar').addEventListener('submit', e => e.preventDefault());
-$('#buscar').addEventListener('input', e => { estado.busqueda = e.target.value; if(estado.actual) volverAlFeed(); else pintarFeed(); });
+// Escucha global de búsqueda (infalible en tiempo real)
+document.addEventListener('input', ev => {
+  if (ev.target && ev.target.id === 'buscar') {
+    estado.busqueda = ev.target.value;
+    if (estado.actual) volverAlFeed(); else pintarFeed();
+  }
+});
+
+// Prevenir recarga del formulario al pulsar Enter
+document.addEventListener('submit', ev => {
+  if (ev.target && (ev.target.id === 'form-buscar' || ev.target.closest('#form-buscar'))) {
+    ev.preventDefault();
+  }
+});
+
 $('#tema-cabecera').addEventListener('change', e => { estado.categoria = e.target.value; $$('#chips-categoria .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.categoria === estado.categoria)); if(estado.actual) volverAlFeed(); else pintarFeed(); });
 $('#btn-debate-dia').addEventListener('click', () => { const d = debateDelDia(); if(d) abrirDebate(d.id); });
 $('#zona-perfil').addEventListener('click', () => { location.hash = 'perfil'; abrirPerfil(); });

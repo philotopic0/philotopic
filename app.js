@@ -533,6 +533,7 @@ function abrirAdmin(){
   $('#vista-admin').hidden = false;
   window.scrollTo({ top: 0 });
   cargarComentariosAdmin();
+  cargarHistoriasAdmin();
 }
 
 async function publicarHistoriaAdmin(e){
@@ -643,6 +644,54 @@ window.eliminarComentarioAdmin = async function(idComentario){
   } catch(e) {
     console.error('Error eliminando comentario:', e);
     avisar('Error al eliminar: ' + e.message);
+  }
+};
+// Carga y lista todos los dilemas en el panel admin
+async function cargarHistoriasAdmin(){
+  const contenedor = $('#admin-lista-historias');
+  if(!contenedor) return;
+
+  const historias = estado.historias || [];
+  if(historias.length === 0){
+    contenedor.innerHTML = '<p class="meta">No hay dilemas publicados.</p>';
+    return;
+  }
+
+  contenedor.innerHTML = '';
+  historias.forEach(h => {
+    const totalVotos = (h.opciones || []).reduce((acc, opt) => acc + (opt.votos || 0), 0);
+    const fila = document.createElement('div');
+    fila.style.cssText = 'background:var(--fondo); border:1px solid var(--borde); border-radius:8px; padding:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;';
+    fila.innerHTML = `
+      <div style="max-width: 80%;">
+        <div style="font-size: 0.95rem; font-weight: 600; margin-bottom: 4px;">${h.titulo || 'Sin título'}</div>
+        <div class="meta" style="font-size: 0.8rem;">Categoría: <strong>${h.categoria || 'General'}</strong> | Votos: <strong>${totalVotos}</strong> | Ref: <code>${h.id}</code></div>
+      </div>
+      <button class="btn" style="background:#fee2e2; color:#b91c1c; border:none; padding:6px 12px; font-size:0.8rem; cursor:pointer;" onclick="eliminarHistoriaAdmin('${h.id}')">
+        Eliminar
+      </button>
+    `;
+    contenedor.appendChild(fila);
+  });
+}
+
+// Elimina una historia y sus registros asociados
+window.eliminarHistoriaAdmin = async function(idHistoria){
+  if(!confirm('¿Seguro que deseas eliminar este dilema por completo? Se borrarán sus opciones y comentarios.')) return;
+  try {
+    await db.from('comentarios').delete().eq('historia_id', idHistoria);
+    await db.from('votos').delete().eq('historia_id', idHistoria);
+    await db.from('opciones').delete().eq('historia_id', idHistoria);
+    const { error } = await db.from('historias').delete().eq('id', idHistoria);
+    if(error) throw error;
+
+    estado.historias = estado.historias.filter(h => h.id !== idHistoria);
+    avisar('Dilema eliminado con éxito.');
+    cargarHistoriasAdmin();
+    pintarFeed();
+  } catch(e) {
+    console.error('Error eliminando historia:', e);
+    avisar('Error al eliminar historia: ' + e.message);
   }
 };
 /* --- ACCIONES EN BASE DE DATOS --- */

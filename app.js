@@ -345,19 +345,57 @@ function tarjeta(h){
   </article>`;
 }
 
-function historiasVisibles(){
-  const q = estado.busqueda.trim().toLowerCase();
-  let lista = estado.historias.filter(h => {
-    const okCat = estado.categoria === 'todas' || h.categoria === estado.categoria;
-    const okBusq = !q || (h.titulo + ' ' + h.pregunta + ' ' + h.cuerpo.join(' ') + ' ' + h.categoria).toLowerCase().includes(q);
-    return okCat && okBusq;
-  });
-  const respuestas = h => contarComentarios(h.comentarios);
-  const minAprox = h => Math.max(1, (Date.now() - new Date(h.created_at).getTime()) / 60000);
-  const ordenes = { tendencias: (a,b) => ((respuestas(b)*60 + totalVotos(b)) / (minAprox(b)+120)) - ((respuestas(a)*60 + totalVotos(a)) / (minAprox(a)+120)), debatidas: (a,b) => respuestas(b) - respuestas(a), nuevas: (a,b) => new Date(b.created_at) - new Date(a.created_at), votadas: (a,b) => totalVotos(b) - totalVotos(a) };
-  return lista.sort(ordenes[estado.orden]);
-}
+function historiasVisibles() {
+  let res = [...(estado.historias || [])];
 
+  // 1. Filtrado por categoría
+  if (estado.categoria && estado.categoria !== 'todas') {
+    res = res.filter(h => h.categoria === estado.categoria);
+  }
+
+  // 2. Filtrado por búsqueda de texto
+  if (estado.busqueda && estado.busqueda.trim()) {
+    const q = estado.busqueda.toLowerCase().trim();
+    res = res.filter(h =>
+      (h.titulo && h.titulo.toLowerCase().includes(q)) ||
+      (h.resumen && h.resumen.toLowerCase().includes(q))
+    );
+  }
+
+  // 3. Ordenación dinámica según la pestaña seleccionada
+  const criterio = estado.ordenActivo || estado.orden || 'tendencias';
+
+  switch (criterio) {
+    case 'votadas':
+      return res.sort((a, b) => {
+        const votosA = (a.opciones || []).reduce((acc, opt) => acc + (Number(opt.votos) || 0), 0);
+        const votosB = (b.opciones || []).reduce((acc, opt) => acc + (Number(opt.votos) || 0), 0);
+        return votosB - votosA;
+      });
+
+    case 'debatidas':
+      return res.sort((a, b) => {
+        const comA = a.comentarios ? a.comentarios.length : 0;
+        const comB = b.comentarios ? b.comentarios.length : 0;
+        return comB - comA;
+      });
+
+    case 'nuevas':
+      return res.sort((a, b) => String(b.id).localeCompare(String(a.id)));
+
+    case 'tendencias':
+    default:
+      return res.sort((a, b) => {
+        const votosA = (a.opciones || []).reduce((acc, opt) => acc + (Number(opt.votos) || 0), 0);
+        const votosB = (b.opciones || []).reduce((acc, opt) => acc + (Number(opt.votos) || 0), 0);
+        const comA = a.comentarios ? a.comentarios.length : 0;
+        const comB = b.comentarios ? b.comentarios.length : 0;
+        const scoreA = votosA + (comA * 2);
+        const scoreB = votosB + (comB * 2);
+        return scoreB - scoreA;
+      });
+  }
+}
 function pintarFeed(){
   const lista = historiasVisibles();
   const cont = $('#feed');
@@ -851,7 +889,6 @@ function pintarPerfil(){
     invitado.hidden = false; invitado.style.display = 'flex'; perfil.hidden = true;
   }
 }
-
 /* ------------------------------------------------------------
    G. EVENTOS E INICIO
    ------------------------------------------------------------ */
@@ -883,9 +920,11 @@ document.addEventListener('click', ev => {
   const rep = el('[data-reportar]'); if(rep){ reportar(rep.dataset.reportar); return; }
 
   const cat = el('[data-categoria]');
-  if(cat){ estado.categoria = cat.dataset.categoria; $('#tema-cabecera').value = estado.categoria; $$('#chips-categoria .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.categoria === estado.categoria)); if(estado.actual) volverAlFeed(); else pintarFeed(); return; }
-  
-  const tab = el('[data-orden]'); if(tab){ estado.orden = tab.dataset.orden; $$('#pestanas-orden .pestana').forEach(p => p.setAttribute('aria-selected', p === tab)); pintarFeed(); return; }
+  if(cat){ estado.categoria = cat.dataset.categoria; $('#tema-cabecera').value = estado.categoria; $$('#chips-categoria .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.categoria === estado.categoria)); if(estado.actual) volverAlFeed(); else pintarFeed(); return; }      const tab = el('[data-orden]');   if(tab){     const ord = tab.dataset.orden;     estado.orden = ord;     estado.ordenActivo = ord;     $$('#pestanas-orden .pestana').forEach(p => p.setAttribute('aria-selected', p === tab));
+    pintarFeed();
+    return;
+  }
+
   const oc = el('[data-orden-com]'); if(oc){ estado.ordenCom = oc.dataset.ordenCom; pintarHilos(estado.historias.find(x => x.id === estado.actual)); return; }
   const fmt = el('[data-formato]'); if(fmt){ aplicarFormato(fmt.dataset.formato); return; }
   const ses = el('[data-abrir-sesion]'); if(ses){ abrirSesion(ses.dataset.abrirSesion); return; }
@@ -907,9 +946,7 @@ document.addEventListener('click', async ev => {
 });
 
 $('#tab-login').addEventListener('click', () => cambiarModoAuth('entrar')); $('#tab-registro').addEventListener('click', () => cambiarModoAuth('registro'));
-$('#s-submit').addEventListener('click', procesarAuth); $('#btn-google').addEventListener('click', loginConGoogle);
-$$('.btn-toggle-password').forEach(btn => { btn.addEventListener('click', () => alternarVerContrasena(btn)); });
-$('#s-password').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
+$('#s-submit').addEventListener('click', procesarAuth); $('#btn-google').addEventListener('click', loginConGoogle); $$('.btn-toggle-password').forEach(btn => { btn.addEventListener('click', () => alternarVerContrasena(btn)); });$('#s-password').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
 if($('#s-password-confirm')) $('#s-password-confirm').addEventListener('keydown', e => { if(e.key === 'Enter') procesarAuth(); });
 
 $('#form-buscar').addEventListener('submit', e => e.preventDefault());
@@ -931,13 +968,16 @@ $('#btn-cerrar-sesion-perfil').addEventListener('click', () => { salir(); volver
   avisar('Cargando debates desde la nube…');
   const [resSesion] = await Promise.all([ db.auth.getSession(), cargarDatosSupabase() ]);
   establecerSesion(resSesion.data.session ? resSesion.data.session.user : null);
-  pintarCategorias(); pintarDestacado(); pintarFeed();
+  pintarCategorias();
+  pintarDestacado();
+  pintarFeed();
+
   const destino = location.hash.slice(1);
   if(destino === 'admin'){
-  abrirAdmin();
-} else if(destino === 'perfil'){
-  abrirPerfil();
-} else if(destino && estado.historias.some(h => h.id === destino)){
-  abrirDebate(destino);
-}
+    abrirAdmin();
+  } else if(destino === 'perfil'){
+    abrirPerfil();
+  } else if(destino && estado.historias.some(h => h.id === destino)){
+    abrirDebate(destino);
+  }
 })();

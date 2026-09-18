@@ -17,52 +17,24 @@ function suscribirRealtime() {
   const canal = db.channel('cambios-vivo');
 
   canal
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'opciones' },
-      (payload) => {
-        console.log('⚡ Cambio en opciones recibido:', payload);
-        const opcionActualizada = payload.new;
-
-        estado.historias.forEach(h => {
-          if (h.opciones) {
-            const opt = h.opciones.find(o => o.id === opcionActualizada.id);
-            if (opt) opt.votos = opcionActualizada.votos;
-          }
-        });
-
-        pintarEncuestas();
-        if (estado.actual) {
-          const hActual = estado.historias.find(h => h.id === estado.actual);
-          if (hActual) {
-            pintarEncuesta(hActual);
-            pintarEditor(hActual);
-            pintarLateralDebate(hActual);
-          }
-        }
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'opciones' }, payload => {
+      console.log('⚡ Cambio en opciones:', payload);
+      if (estado.actual) {
+        const hist = estado.historias.find(h => h.id === estado.actual);
+        if (hist) pintarEncuesta(hist);
       }
-    )
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'comentarios' },
-      (payload) => {
-        console.log('⚡ Nuevo comentario recibido:', payload);
-        const nuevoComentario = payload.new;
-        const historia = estado.historias.find(h => h.id === nuevoComentario.historia_id);
-        if (historia) {
-          if (!historia.comentarios) historia.comentarios = [];
-          if (!historia.comentarios.some(c => c.id === nuevoComentario.id)) {
-            historia.comentarios.push(nuevoComentario);
-            if (estado.actual === historia.id) {
-              pintarEditor(historia);
-            }
-          }
-        }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'comentarios' }, payload => {
+      console.log('⚡ Cambio en comentarios:', payload);
+      if (estado.actual) {
+        const hist = estado.historias.find(h => h.id === estado.actual);
+        if (hist) pintarComentarios(hist);
       }
-    )
-    .subscribe((status, err) => {
-      console.log('Estado de la suscripción Realtime:', status);
-      if (err) console.error('Error en suscripción:', err);
+    })
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') {
+        console.log('Tiempo real conectado.');
+      }
     });
 }
 const EMAIL_ADMIN = 'philotopic0@gmail.com';

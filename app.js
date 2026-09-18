@@ -532,6 +532,7 @@ function abrirAdmin(){
   $('#vista-debate').hidden = true;
   $('#vista-admin').hidden = false;
   window.scrollTo({ top: 0 });
+  cargarComentariosAdmin();
 }
 
 async function publicarHistoriaAdmin(e){
@@ -588,6 +589,63 @@ async function publicarHistoriaAdmin(e){
     btn.textContent = 'Publicar dilema ahora';
   }
 }
+// --- MODERACIÓN DE COMENTARIOS (ADMIN) ---
+
+// Carga los 20 comentarios más recientes
+async function cargarComentariosAdmin(){
+  const contenedor = $('#admin-lista-comentarios');
+  if(!contenedor) return;
+  contenedor.innerHTML = '<p class="meta">Cargando comentarios...</p>';
+
+  try {
+    const { data, error } = await db
+      .from('comentarios')
+      .select('id, historia_id, autor, texto, creado_en')
+      .order('creado_en', { ascending: false })
+      .limit(20);
+
+    if(error) throw error;
+    if(!data || data.length === 0){
+      contenedor.innerHTML = '<p class="meta">No hay comentarios recientes.</p>';
+      return;
+    }
+
+    contenedor.innerHTML = '';
+    data.forEach(c => {
+      const fila = document.createElement('div');
+      fila.style.cssText = 'background:var(--fondo); border:1px solid var(--borde); border-radius:8px; padding:12px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px;';
+      fila.innerHTML = `
+        <div style="max-width: 80%;">
+          <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 4px;">
+            ${c.autor || 'Anónimo'} <span class="meta" style="font-weight: 400; font-size: 0.75rem;">(Debate: ${c.historia_id})</span>
+          </div>
+          <div style="font-size: 0.9rem; color: var(--texto); word-break: break-word;">${c.texto}</div>
+        </div>
+        <button class="btn" style="background:#fee2e2; color:#b91c1c; border:none; padding:6px 10px; font-size:0.8rem; cursor:pointer;" onclick="eliminarComentarioAdmin('${c.id}')">
+          Borrar
+        </button>
+      `;
+      contenedor.appendChild(fila);
+    });
+  } catch(e) {
+    console.error('Error cargando comentarios para moderación:', e);
+    contenedor.innerHTML = '<p class="meta" style="color:var(--alerta)">Error al cargar comentarios.</p>';
+  }
+}
+
+// Elimina el comentario de la base de datos
+window.eliminarComentarioAdmin = async function(idComentario){
+  if(!confirm('¿Seguro que deseas eliminar este comentario?')) return;
+  try {
+    const { error } = await db.from('comentarios').delete().eq('id', idComentario);
+    if(error) throw error;
+    avisar('Comentario eliminado.');
+    cargarComentariosAdmin();
+  } catch(e) {
+    console.error('Error eliminando comentario:', e);
+    avisar('Error al eliminar: ' + e.message);
+  }
+};
 /* --- ACCIONES EN BASE DE DATOS --- */
 // Descarga los votos reales del usuario desde Supabase
 async function sincronizarVotosUsuario(userId){

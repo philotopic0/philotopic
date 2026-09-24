@@ -409,18 +409,24 @@ function pintarFeed() {
 
   const hayBusqueda = Boolean(estado.busqueda && estado.busqueda.trim() !== '');
 
-  // Ocultar o mostrar debate del día y filtros según haya búsqueda activa
+  // 1. Visibilidad de secciones secundarias
   if (seccionDebateDia) seccionDebateDia.hidden = hayBusqueda;
   if (pestanasOrden) pestanasOrden.hidden = hayBusqueda;
   if (chipsCategoria) chipsCategoria.hidden = hayBusqueda;
 
+  // 2. Si NO hay búsqueda, aseguramos que el debate del día se pinte si existe la función
+  if (!hayBusqueda && typeof pintarDebateDia === 'function') {
+    pintarDebateDia();
+  }
+
+  // 3. Obtener historias filtradas
   const historias = historiasVisibles();
 
-  // Si no hay coincidencias
+  // 4. Caso sin coincidencias
   if (historias.length === 0) {
     contenedor.innerHTML = `
       <div class="hoja" style="text-align: center; padding: 48px 24px;">
-        <p style="font-size: 1.2rem; font-weight: 600; margin-bottom: 8px;">No se encontraron resultados para "${estado.busqueda}"</p>
+        <p style="font-size: 1.2rem; font-weight: 600; margin-bottom: 8px;">No se encontraron resultados para "${estado.busqueda || ''}"</p>
         <p class="meta" style="margin-bottom: 20px;">Prueba a buscar con otras palabras clave o restablece la búsqueda.</p>
         <button type="button" class="btn btn--linea" id="btn-restablecer-feed">Ver todos los dilemas</button>
       </div>
@@ -440,7 +446,7 @@ function pintarFeed() {
     return;
   }
 
-  // Título con el número de resultados
+  // 5. Cabecera con conteo si hay búsqueda
   let htmlResultados = '';
   if (hayBusqueda) {
     htmlResultados = `
@@ -452,6 +458,7 @@ function pintarFeed() {
     `;
   }
 
+  // 6. Si no hay búsqueda y existe una destacada, puedes filtrar la destacada del listado general (o mostrar todas)
   contenedor.innerHTML = htmlResultados + historias.map(tarjeta).join('');
 }
 function pintarCategorias(){

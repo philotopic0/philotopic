@@ -416,7 +416,7 @@ function pintarFeed() {
 
   const historias = historiasVisibles();
 
-  // Si no hay coincidencias con el término buscado
+  // Si no hay coincidencias
   if (historias.length === 0) {
     contenedor.innerHTML = `
       <div class="hoja" style="text-align: center; padding: 48px 24px;">
@@ -440,7 +440,7 @@ function pintarFeed() {
     return;
   }
 
-  // Título informativo con el número de resultados encontrados
+  // Título con el número de resultados
   let htmlResultados = '';
   if (hayBusqueda) {
     htmlResultados = `
@@ -452,7 +452,7 @@ function pintarFeed() {
     `;
   }
 
-  contenedor.innerHTML = htmlResultados + historias.map(crearTarjetaHistoria).join('');
+  contenedor.innerHTML = htmlResultados + historias.map(tarjeta).join('');
 }
 function pintarCategorias(){
   const cuenta = c => estado.historias.filter(h => h.categoria === c).length;

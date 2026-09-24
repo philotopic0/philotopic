@@ -399,13 +399,61 @@ function historiasVisibles() {
       });
   }
 }
-function pintarFeed(){
-  const lista = historiasVisibles();
-  const cont = $('#feed');
-  if(!lista.length){ cont.innerHTML = `<div class="vacio"><h3>Ninguna historia encaja con esa búsqueda</h3><p>Prueba con otra palabra o cambia de temática.</p></div>`; return; }
-  cont.innerHTML = lista.map(tarjeta).join('');
-}
+function pintarFeed() {
+  const contenedor = document.getElementById('feed');
+  const seccionDebateDia = document.getElementById('debate-dia');
+  const pestanasOrden = document.getElementById('pestanas-orden');
+  const chipsCategoria = document.getElementById('chips-categoria');
 
+  if (!contenedor) return;
+
+  const hayBusqueda = Boolean(estado.busqueda && estado.busqueda.trim() !== '');
+
+  // Ocultar o mostrar debate del día y filtros según haya búsqueda activa
+  if (seccionDebateDia) seccionDebateDia.hidden = hayBusqueda;
+  if (pestanasOrden) pestanasOrden.hidden = hayBusqueda;
+  if (chipsCategoria) chipsCategoria.hidden = hayBusqueda;
+
+  const historias = historiasVisibles();
+
+  // Si no hay coincidencias con el término buscado
+  if (historias.length === 0) {
+    contenedor.innerHTML = `
+      <div class="hoja" style="text-align: center; padding: 48px 24px;">
+        <p style="font-size: 1.2rem; font-weight: 600; margin-bottom: 8px;">No se encontraron resultados para "${estado.busqueda}"</p>
+        <p class="meta" style="margin-bottom: 20px;">Prueba a buscar con otras palabras clave o restablece la búsqueda.</p>
+        <button type="button" class="btn btn--linea" id="btn-restablecer-feed">Ver todos los dilemas</button>
+      </div>
+    `;
+
+    const btnReset = document.getElementById('btn-restablecer-feed');
+    if (btnReset) {
+      btnReset.addEventListener('click', () => {
+        const input = document.getElementById('buscar');
+        const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
+        if (input) input.value = '';
+        if (btnLimpiar) btnLimpiar.hidden = true;
+        estado.busqueda = '';
+        pintarFeed();
+      });
+    }
+    return;
+  }
+
+  // Título informativo con el número de resultados encontrados
+  let htmlResultados = '';
+  if (hayBusqueda) {
+    htmlResultados = `
+      <div style="margin-bottom: 16px;">
+        <span class="meta" style="font-size: 0.95rem;">
+          Resultados para <strong>"${estado.busqueda}"</strong> (${historias.length})
+        </span>
+      </div>
+    `;
+  }
+
+  contenedor.innerHTML = htmlResultados + historias.map(crearTarjetaHistoria).join('');
+}
 function pintarCategorias(){
   const cuenta = c => estado.historias.filter(h => h.categoria === c).length;
   $('#chips-categoria').innerHTML = ['todas', ...CATEGORIAS].map(c => `<button class="chip" data-categoria="${esc(c)}" aria-pressed="${estado.categoria===c}">${c === 'todas' ? 'Todas' : esc(c)}</button>`).join('');

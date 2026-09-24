@@ -848,3 +848,84 @@ img{max-width:100%;}
   color: var(--plomo-claro);
   font-size: 0.9rem;
 }
+
+/* ============================================================
+   BOTÓN LIMPIAR (X) Y DESPLEGABLE HISTORIAL DE BÚSQUEDA
+   ============================================================ */
+.btn-limpiar {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  font-size: 1.3rem;
+  color: #888;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-limpiar:hover {
+  color: #333;
+}
+
+.historial-desplegable {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid var(--borde, #e2e8f0);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  overflow: hidden;
+  padding: 6px 0;
+}
+.historial-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #f0f2f5;
+}
+#btn-borrar-historial {
+  background: none;
+  border: none;
+  color: #e53e3e;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+#btn-borrar-historial:hover {
+  text-decoration: underline;
+}
+#lista-historial {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+#lista-historial li {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #2d3748;
+  transition: background 0.15s ease;
+}
+#lista-historial li:hover {
+  background: #f7fafc;
+  color: var(--indigo, #3b2eea);
+}
+#lista-historial li .icono-reloj {
+  margin-right: 8px;
+  opacity: 0.5;
+}

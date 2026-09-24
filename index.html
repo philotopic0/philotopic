@@ -32,13 +32,21 @@
       <span class="logo__nombre">Philotopic</span>
     </a>
 
-    <form class="buscador" role="search" id="form-buscar">
-      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-        <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.7"/>
-        <path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+    <form id="form-buscar" class="buscador" role="search" style="position: relative;">
+      <svg class="icono-buscar" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="8" cy="8" r="6"></circle>
+        <line x1="13" y1="13" x2="18" y2="18"></line>
       </svg>
       <label for="buscar" class="solo-lectores">Buscar historias o palabras clave</label>
       <input id="buscar" type="search" placeholder="Busca una historia o una palabra clave" autocomplete="off">
+      <button type="button" id="btn-limpiar-busqueda" class="btn-limpiar" title="Borrar búsqueda" hidden>&times;</button>
+      <div id="historial-busquedas" class="historial-desplegable" hidden>
+        <div class="historial-header">
+          <span>Búsquedas recientes</span>
+          <button type="button" id="btn-borrar-historial">Borrar todo</button>
+        </div>
+        <ul id="lista-historial"></ul>
+      </div>
     </form>
 
     <label for="tema-cabecera" class="solo-lectores">Temática</label>
@@ -66,8 +74,6 @@
           </div>
         </div>
       </div>
-        <span class="campana__punto"></span>
-      </button>
 
       <!-- Sesión cerrada -->
       <div id="zona-invitado" style="display:flex;gap:8px;">
@@ -163,6 +169,7 @@
       </aside>
     </div>
   </div>
+
   <!-- ============================================================
        VISTA PERFIL DE USUARIO
        ============================================================ -->
@@ -203,10 +210,11 @@
       </div>
     </div>
   </div>
-<!-- ============================================================
+
+  <!-- ============================================================
        VISTA 3 — PANEL DE ADMINISTRACIÓN (SOLO ADMIN)
        ============================================================ -->
-       <div id="vista-admin" class="envoltura" hidden>
+  <div id="vista-admin" class="envoltura" hidden>
     <a href="#" class="volver" id="btn-volver-admin">
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
         <path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -269,6 +277,7 @@
           Publicar dilema ahora
         </button>
       </form>
+
       <!-- SECCIÓN GESTIÓN DE HISTORIAS -->
       <div style="margin-top: 40px; border-top: 1px solid var(--borde); padding-top: 24px;">
         <h2 style="font-size: 1.25rem; margin-bottom: 8px;">Gestionar dilemas publicados</h2>
@@ -277,6 +286,7 @@
           <p class="meta">Cargando dilemas...</p>
         </div>
       </div>
+
       <!-- SECCIÓN MODERACIÓN DE COMENTARIOS -->
       <div style="margin-top: 40px; border-top: 1px solid var(--borde); padding-top: 24px;">
         <h2 style="font-size: 1.25rem; margin-bottom: 8px;">Moderación de comentarios</h2>
@@ -297,7 +307,7 @@
 </footer>
 
 <!-- ============================================================
-     MODAL — AUTENTICACIÓN (LOGIN / REGISTRO ESTILO REDDIT/TWITCH)
+     MODAL — AUTENTICACIÓN (LOGIN / REGISTRO)
      ============================================================ -->
 <div class="velo" id="velo-sesion" hidden>
   <div class="modal auth-card" role="dialog" aria-modal="true" aria-labelledby="titulo-sesion">
@@ -338,8 +348,6 @@
 
     <!-- Formulario principal -->
     <div class="auth-form">
-      
-      <!-- Campo obligatorio: Nombre de usuario (sólo en registro) -->
       <div class="auth-campo" id="campo-usuario" hidden>
         <label for="s-usuario">Nombre de usuario <span class="req">*</span></label>
         <input type="text" id="s-usuario" maxlength="22" placeholder="ej. martaenduda" autocomplete="username">
@@ -351,7 +359,6 @@
         <input type="email" id="s-email" placeholder="tu@correo.com" autocomplete="email">
       </div>
 
-      <!-- Primera Contraseña -->
       <div class="auth-campo">
         <label for="s-password">Contraseña <span class="req">*</span></label>
         <div class="input-password-wrapper">
@@ -365,7 +372,6 @@
         </div>
       </div>
 
-      <!-- Segunda Contraseña (Confirmación, sólo en registro) -->
       <div class="auth-campo" id="campo-confirmar" hidden>
         <label for="s-password-confirm">Repetir contraseña <span class="req">*</span></label>
         <div class="input-password-wrapper">
@@ -398,6 +404,6 @@
 <!-- Librería oficial de Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Lógica vinculada -->
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

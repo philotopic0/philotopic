@@ -953,41 +953,130 @@ if($('#s-password-confirm')) $('#s-password-confirm').addEventListener('keydown'
 
 // Búsqueda al teclear en tiempo real
 // Conexión directa y global del buscador
+// --- GESTIÓN DE HISTORIAL Y BOTÓN X ---
+const KEY_HISTORIAL = 'philotopic_historial_busquedas';
+
+function obtenerHistorial() {
+  try {
+    return JSON.parse(localStorage.getItem(KEY_HISTORIAL)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function guardarEnHistorial(termino) {
+  const query = termino.trim();
+  if (!query) return;
+  let historial = obtenerHistorial();
+  historial = [query, ...historial.filter(item => item.toLowerCase() !== query.toLowerCase())].slice(0, 5);
+  localStorage.setItem(KEY_HISTORIAL, JSON.stringify(historial));
+}
+
+function pintarHistorial() {
+  const contenedor = document.getElementById('historial-busquedas');
+  const lista = document.getElementById('lista-historial');
+  if (!contenedor || !lista) return;
+
+  const historial = obtenerHistorial();
+  if (historial.length === 0) {
+    contenedor.hidden = true;
+    return;
+  }
+
+  lista.innerHTML = historial.map(item => `
+    <li data-valor="${item}">
+      <span class="icono-reloj">🕒</span> <span>${item}</span>
+    </li>
+  `).join('');
+
+  contenedor.hidden = false;
+}
+
 function enlazarBuscador() {
   const input = document.getElementById('buscar');
   const form = document.getElementById('form-buscar');
+  const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
+  const contenedorHistorial = document.getElementById('historial-busquedas');
+  const btnBorrarHistorial = document.getElementById('btn-borrar-historial');
 
-  if (input) {
-    // Al escribir
-    input.addEventListener('input', (e) => {
-      estado.busqueda = e.target.value;
-      if (estado.actual) volverAlFeed();
-      else pintarFeed();
+  if (!input) return;
+
+  const actualizarBtnLimpiar = () => {
+    if (btnLimpiar) btnLimpiar.hidden = !input.value.trim();
+  };
+
+  input.addEventListener('input', (e) => {
+    estado.busqueda = e.target.value;
+    actualizarBtnLimpiar();
+    if (contenedorHistorial) contenedorHistorial.hidden = true;
+    if (estado.actual) volverAlFeed(); else pintarFeed();
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      guardarEnHistorial(input.value);
+      if (contenedorHistorial) contenedorHistorial.hidden = true;
+      estado.busqueda = input.value;
+      if (estado.actual) volverAlFeed(); else pintarFeed();
+    }
+  });
+
+  input.addEventListener('focus', () => {
+    if (!input.value.trim()) pintarHistorial();
+  });
+
+  if (btnLimpiar) {
+    btnLimpiar.addEventListener('click', () => {
+      input.value = '';
+      estado.busqueda = '';
+      btnLimpiar.hidden = true;
+      if (estado.actual) volverAlFeed(); else pintarFeed();
+      input.focus();
     });
+  }
 
-    // Al presionar Enter
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        estado.busqueda = input.value;
-        if (estado.actual) volverAlFeed();
-        else pintarFeed();
+  if (contenedorHistorial) {
+    contenedorHistorial.addEventListener('click', (e) => {
+      const li = e.target.closest('li[data-valor]');
+      if (li) {
+        const valor = li.dataset.valor;
+        input.value = valor;
+        estado.busqueda = valor;
+        actualizarBtnLimpiar();
+        contenedorHistorial.hidden = true;
+        if (estado.actual) volverAlFeed(); else pintarFeed();
       }
     });
   }
+
+  if (btnBorrarHistorial) {
+    btnBorrarHistorial.addEventListener('click', (e) => {
+      e.stopPropagation();
+      localStorage.removeItem(KEY_HISTORIAL);
+      if (contenedorHistorial) contenedorHistorial.hidden = true;
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (form && !form.contains(e.target)) {
+      if (contenedorHistorial) contenedorHistorial.hidden = true;
+    }
+  });
 
   if (form) {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      if (input) {
-        estado.busqueda = input.value;
-        if (estado.actual) volverAlFeed();
-        else pintarFeed();
-      }
+      guardarEnHistorial(input.value);
+      if (contenedorHistorial) contenedorHistorial.hidden = true;
+      estado.busqueda = input.value;
+      if (estado.actual) volverAlFeed(); else pintarFeed();
     });
   }
 }
 
+enlazarBuscador();
+document.addEventListener('DOMContentLoaded', enlazarBuscador);
 // Ejecutar el enlace inmediatamente y al cargar el DOM
 enlazarBuscador();
 document.addEventListener('DOMContentLoaded', enlazarBuscador);
